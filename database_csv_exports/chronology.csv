@@ -1,0 +1,17 @@
+chronological_period,start,stop,id
+Età del Rame, -3600, -2200,1
+Età del Bronzo,-2300,-900,2
+Età del Ferro,-1000,-100,3
+Età Arcaica,-800,-509,4
+Età Romana,-753,476,5
+Età Romano repubblicana,-508,-28,6
+Età Romano imperiale,-27,476,7
+Età Tardoantica,300,568,8
+Età Medievale,569,1500,9
+Età Altomedievale,569,999,10
+Età Bassomedievale,1000,1500,11
+Prima età moderna,1500,1789,12
+non determinabile,null,null,13
+Tarda età moderna,1789,1870,14
+Età contemporanea,1870,oggi,15
+Età moderna,1500,1870,16

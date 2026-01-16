@@ -1,0 +1,73 @@
+id,desc_typology,id_functional_class
+1,infrastruttura agraria,6
+2,infrastruttura assistenziale,6
+3,infrastruttura di consolidamento,6
+4,infrastruttura di servizio,6
+5,infrastruttura idrica,6
+6,infrastruttura portuale,6
+7,infrastruttura viaria,6
+8,insediamento fortificato,1
+9,insediamento palafitticolo,1
+10,insediamento rupestre,1
+11,insediamento rurale,1
+12,insediamento urbano,1
+13,sepoltura individuale,2
+14,sepoltura collettiva,2
+15,campanile,3
+16,complesso conventuale ,3
+17, complesso episcopale,3
+18, complesso monastico,3
+19,edificio di culto,3
+20,edificio di culto ed annessi,3
+21,laura,3
+22,luogo di culto,3
+23,luogo di culto all’aperto,3
+24, luogo di culto rupestre,3
+25,monumento isolato per il culto,3
+26,santuario,3
+27,anfiteatro,4
+28,archivio,4
+29,basilica,4
+30,biblioteca,4
+31,bottega,4
+32,caserma,4
+33,circo,4
+34,comizio,4
+35,curia,4
+36,erario,4
+37,foro,4
+38,impianto balneare,4
+39,impianto termale,4
+40,latrina pubblica,4
+41,lupanare,4
+42,mercato,4
+43,odeon,4
+44,osteria,4
+45,palestra,4
+46,piazza,4
+47,prigione,4
+48,sede di corporazioni professionali e religiose,4
+49,stadio,4
+50,taverna,4
+51,teatro,4
+52,calcara,5
+53,calzaturificio,5
+54,cava,5
+55,conceria,5
+56,fabbrica di feltro,5
+57,falegnameria,5
+58,fornace,5
+59,impianto ceramico,5
+60,impianto per la piscicoltura,5
+61,industria della lana,5
+62,lavanderia,5
+63,miniera,5
+64,mulino,5
+65,officina,5
+66,officina tessile,5
+67,oreficeria,5
+68,panificio,5
+69,salina,5
+70,tintoria,5
+71,vetreria,5
+72,zecca,5

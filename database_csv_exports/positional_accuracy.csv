@@ -1,0 +1,10 @@
+degree,description,position_type,id
+4,"High precision data (‘high’ is here intended as related to the scale of a regional research), such as sites identified with the complete cadastral reference or located with GPS devices (differential or hand-held GPS).
+Dati di alta precisione ('alta' è qui inteso in riferimento alla scala di una ricerca regionale), come i siti identificati con il riferimento catastale completo o localizzati con dispositivi GPS (GPS differenziale o portatile)",precise,1
+3,"Spatial precision smaller than 100 m, such as sites recoded on the K717 series with MGRS 6-figures coordinates. The centroid of the defined polygon will be recorded in the database. Precisione spaziale inferiore ai 100m. 
+",certain,2
+2,"Positional precision bigger than 100 m but smaller that 1km, such as sites recorded on the K717 series with MGRS 4-figures coordinates or sites with partial cadastral references (cadastral sheet and plan, without plots). The centroid of the defined polygon will be recorded in the database. Precisione spaziale compresa tra i 100m e 1 km. 
+
+",approximate,3
+1,"Positional precision bigger than 1km. Sometimes these sites are described as ‘unplaceable’ in the original reports given their original identification on the basis of second-hand sources (e.g. shepherds, locals, toponymy, etc.). The centroid of the defined polygon will be recorded in the database. Precisione spaziale superiore a 1 km. A volte questi siti sono descritti come “non collocabili”, data la loro identificazione originaria sulla base di fonti di seconda mano (ad esempio pastori, gente del posto, toponomastica, ecc.).
+",imprecise,4

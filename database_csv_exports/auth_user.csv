@@ -1,0 +1,14 @@
+id,password,last_login,is_superuser,username,first_name,last_name,email,is_staff,is_active,date_joined
+6,pbkdf2_sha256$1000000$6blXC49k0PWeRapur0mKgw$hW/+tjSOniAPhnawuEsmyyolbXJl5izy8AlKUbPW24k=,2025-05-15 09:42:08.83621+00,f,userinactive,"","",inactive@test.it,f,t,2025-05-15 09:40:39+00
+5,pbkdf2_sha256$1000000$4KmUapA5Tm11zjgHqQv3sn$Sy7XEAR+cbA1/DAgNl84EvPOb2zUcX9T3bcfDq1vcns=,2025-05-19 22:24:31.396009+00,f,use4,"","",user4@user.it,f,t,2025-05-12 12:26:28.755304+00
+2,pbkdf2_sha256$1000000$dVcOhgApJvtQBj2CbybhVP$Gb70Gph2KKj7rJLVbNFR2GrZ1gigxtwE5WzForNJlH4=,2025-04-17 13:55:03.270757+00,f,test,"","",prova@prova.com,f,t,2025-04-17 12:26:18.002639+00
+1,pbkdf2_sha256$1000000$iHdRbhniTtrIpmn9dXfUlY$CUI7/IjNvKqD664zVSgICetfO6Rg2iU291YHuqJaZG8=,2025-05-09 09:35:44.351235+00,f,ergin,"","",erginmehmeti@gmail.com,f,t,2025-04-16 11:12:37.538905+00
+4,pbkdf2_sha256$1000000$Wuo3kzqjUipGKVtRrnPGsx$MH7tMu566VNG3GTXvR6hU5dAlCnFFSbUnqRyuXI9itY=,2025-05-12 12:20:24.688534+00,f,user3,"","",user3@user.it,f,t,2025-05-12 12:20:19.25861+00
+8,pbkdf2_sha256$1000000$lhG6iJ4ayk1qVEobEf4t6B$Pq5/x6UWKAI9nsUa3VmPxgwLAV3jbZ3NoZiupp8VR5Q=,2025-05-26 15:32:36.576877+00,f,francesco_donnabella,"","",fra.donnabella@stud.uniroma3.it,f,t,2025-05-26 15:00:49+00
+13,pbkdf2_sha256$1000000$hqsfUqRAtvjhliV4M22vgF$gBS9g2WFuPVuX00G950s90Dg6Scg0EZ+TIDfPnJaRs8=,2025-05-26 15:46:28.566265+00,f,Gianluca_Coppotelli,"","",gianluca.coppotelli@hotmail.it,f,t,2025-05-26 15:33:33+00
+3,pbkdf2_sha256$1000000$wxgEEMYCmf9a68fpXYMIr8$xrEdw79f5ENhlwR1fpzJKq+rN/0XAZXifL0+a+LtUeU=,2025-05-26 13:47:41.979536+00,t,ergmeh,"","",ergin.mehmeti@logos-ri.eu,t,t,2025-04-23 08:19:42.008582+00
+7,pbkdf2_sha256$1000000$JHmhg7K4YHnfJ0J5SHSKIM$LzXl63vTDCg6+hMftkeBhlfEQ4VGIa5J+x5v9WsdIYo=,2025-05-26 15:27:57.321314+00,t,margherita_bottoni,"","",margherita.bottoni@uniroma3.it,t,t,2025-05-26 11:14:59+00
+10,pbkdf2_sha256$1000000$t3gMHBA07n2K0rRFkjxFTO$Dl8gkIXZGUR4Ok9zD40SkOBBpc5AZ+IG1myY9JfX6bM=,2025-05-26 15:32:43.90767+00,f,ros.marsiglia,"","",ros.marsiglia@stud.uniroma3.it,f,t,2025-05-26 15:24:09+00
+9,pbkdf2_sha256$1000000$igqd5OGMLbr6jyy3T3flR5$wDZX3WysFSo90JMT3wOEECl5f5NASdOCsxSkjeVR0gM=,2025-05-26 15:32:45.902032+00,f,sofia.postoncini,"","",sof.postoncini@stud.uniroma3.it,f,t,2025-05-26 15:24:01+00
+12,pbkdf2_sha256$1000000$jgp0oleKPMOfjYZo9JNFeu$2OXqdgjHPebCRSJUDpZMWBS7v3fVzq3MfncarpNnfFA=,2025-05-26 15:33:06.074121+00,f,Marco_Scivoletto,"","",mar.scivoletto@stud.uniroma3.it,f,t,2025-05-26 15:29:28+00
+11,pbkdf2_sha256$1000000$WUf2RI5IiXQmCBlLwhOmd5$QOh62UtczX/GkSOw133UEPzIVNfUub/XVNPMWahh6bI=,2025-05-26 15:32:40.849561+00,f,Stefano_Pirocci,"","",ste.pirocci@stud.uniroma3.it,f,t,2025-05-26 15:26:15+00

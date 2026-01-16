@@ -1,0 +1,8 @@
+desc_positioning_mode,id
+da cartografia con sopralluogo,1
+da cartografia senza sopralluogo,2
+con GPS,3
+tramite punti di appoggio fiduciali o trigonometrici,4
+remote sensing con sopralluogo,5
+remote sensing senza sopralluogo,6
+da bibliografia/cartografia storica/fonti d'archivio/fonti orali,10

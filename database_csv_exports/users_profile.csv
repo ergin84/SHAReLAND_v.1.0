@@ -1,0 +1,14 @@
+id,image,user_id,birth_date,qualification
+2,default.jpg,2,,
+1,profile_pics/3dmap.png,1,,
+4,default.jpg,4,,
+6,default.jpg,6,,
+5,default.jpg,5,1984-04-03,student
+3,default.jpg,3,1984-04-03,tester
+7,default.jpg,7,,PhD Candidate
+10,default.jpg,10,,
+9,default.jpg,9,,
+12,default.jpg,12,,
+11,default.jpg,11,2001-03-12,
+8,default.jpg,8,2001-06-10,
+13,default.jpg,13,,

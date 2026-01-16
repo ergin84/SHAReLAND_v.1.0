@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="95" fill="#2c3e50" stroke="#34495e" stroke-width="2"/>
+  
+  <!-- Archaeological layers/strata representing site excavation -->
+  <g transform="translate(100, 100)">
+    <!-- Layer 1 (bottom) -->
+    <rect x="-40" y="20" width="80" height="15" fill="#8b6914" opacity="0.9"/>
+    <!-- Layer 2 -->
+    <rect x="-35" y="5" width="70" height="15" fill="#a67c00" opacity="0.85"/>
+    <!-- Layer 3 -->
+    <rect x="-30" y="-10" width="60" height="15" fill="#c49600" opacity="0.8"/>
+    <!-- Layer 4 (top) -->
+    <rect x="-25" y="-25" width="50" height="15" fill="#d4a017" opacity="0.75"/>
+    
+    <!-- Compass rose in center -->
+    <g transform="translate(0, -15)">
+      <!-- North arrow -->
+      <path d="M 0 -20 L -5 -10 L 0 -5 L 5 -10 Z" fill="#e74c3c"/>
+      <!-- East arrow -->
+      <path d="M 20 0 L 10 -5 L 5 0 L 10 5 Z" fill="#3498db"/>
+      <!-- South arrow -->
+      <path d="M 0 20 L -5 10 L 0 5 L 5 10 Z" fill="#2ecc71"/>
+      <!-- West arrow -->
+      <path d="M -20 0 L -10 -5 L -5 0 L -10 5 Z" fill="#f39c12"/>
+      <!-- Center circle -->
+      <circle cx="0" cy="0" r="8" fill="#34495e"/>
+    </g>
+    
+    <!-- Grid lines representing archaeological grid -->
+    <g stroke="#ecf0f1" stroke-width="0.5" opacity="0.3">
+      <line x1="-35" y1="-30" x2="-35" y2="30"/>
+      <line x1="0" y1="-30" x2="0" y2="30"/>
+      <line x1="35" y1="-30" x2="35" y2="30"/>
+      <line x1="-40" y1="-20" x2="40" y2="-20"/>
+      <line x1="-40" y1="0" x2="40" y2="0"/>
+      <line x1="-40" y1="20" x2="40" y2="20"/>
+    </g>
+  </g>
+  
+  <!-- Outer decorative elements - small artifacts -->
+  <circle cx="50" cy="50" r="3" fill="#e67e22"/>
+  <circle cx="150" cy="50" r="3" fill="#e67e22"/>
+  <circle cx="50" cy="150" r="3" fill="#e67e22"/>
+  <circle cx="150" cy="150" r="3" fill="#e67e22"/>
+</svg>
+
+
+
+
+
+
