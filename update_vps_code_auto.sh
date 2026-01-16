@@ -21,7 +21,7 @@ APP_DIR="/var/www/shareland"
 APP_USER="shareland"
 DB_NAME="shareland_db"
 REPO_URL="https://github.com/ergin84/SHAReLAND_v.1.0.git"
-REPO_BRANCH="master"
+REPO_BRANCH="main"
 
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}ShareLand VPS Code Update (Auto)${NC}"

@@ -105,8 +105,21 @@ chown -R ${APP_USER}:${APP_GROUP} ${APP_DIR}/repo
 git config --global --add safe.directory ${APP_DIR}/repo
 sudo -u ${APP_USER} git config --global --add safe.directory ${APP_DIR}/repo
 cd ${APP_DIR}/repo
+# Initialize and update submodules if they exist
+if [ -f "${APP_DIR}/repo/.gitmodules" ]; then
+    echo "Initializing Git submodules..."
+    sudo -u ${APP_USER} git submodule update --init --recursive
+    chown -R ${APP_USER}:${APP_GROUP} ${APP_DIR}/repo
+fi
 LATEST_COMMIT=$(git rev-parse --short HEAD)
 echo "Repository cloned. Latest commit: ${LATEST_COMMIT}"
+echo "Repository structure:"
+ls -la ${APP_DIR}/repo/ | head -15
+# Check if shareland directory is empty (nested repo issue)
+if [ -d "${APP_DIR}/repo/shareland" ] && [ -z "$(ls -A ${APP_DIR}/repo/shareland 2>/dev/null)" ]; then
+    echo -e "${YELLOW}Warning: shareland directory is empty. This may be a nested Git repository.${NC}"
+    echo "Attempting to find Django project in alternative locations..."
+fi
 
 # Step 8: Create PostgreSQL database
 echo -e "${YELLOW}[8/12] Setting up PostgreSQL database...${NC}"
@@ -133,16 +146,68 @@ source ${APP_DIR}/venv/bin/activate
 sudo -u ${APP_USER} ${APP_DIR}/venv/bin/pip install --upgrade pip setuptools wheel
 
 # Install Django and dependencies
-cd ${APP_DIR}/repo
+# Find the correct directory with requirements.txt
+if [ -f "${APP_DIR}/repo/shareland/requirements.txt" ]; then
+    cd ${APP_DIR}/repo/shareland
+elif [ -f "${APP_DIR}/repo/requirements.txt" ]; then
+    cd ${APP_DIR}/repo
+else
+    echo -e "${RED}Error: Cannot find requirements.txt${NC}"
+    exit 1
+fi
 sudo -u ${APP_USER} ${APP_DIR}/venv/bin/pip install -r requirements.txt
 sudo -u ${APP_USER} ${APP_DIR}/venv/bin/pip install gunicorn psycopg2-binary redis
 
 # Step 10: Configure Django settings
 echo -e "${YELLOW}[10/13] Configuring Django application...${NC}"
 
+# Debug: List repository structure
+echo "Checking repository structure..."
+ls -la ${APP_DIR}/repo/ | head -20
+if [ -d "${APP_DIR}/repo/shareland" ]; then
+    echo "Found shareland subdirectory"
+    ls -la ${APP_DIR}/repo/shareland/ | head -20
+fi
+
+# Detect the correct Django project directory
+DJANGO_PROJECT_DIR=""
+SETTINGS_MODULE=""
+SETTINGS_IMPORT=""
+if [ -d "${APP_DIR}/repo/shareland/ShareLand" ]; then
+    DJANGO_PROJECT_DIR="${APP_DIR}/repo/shareland/ShareLand"
+    SETTINGS_MODULE="shareland.settings_production"
+    SETTINGS_IMPORT="from shareland.settings import *"
+    echo "Using: ${DJANGO_PROJECT_DIR}"
+elif [ -d "${APP_DIR}/repo/ShareLand" ]; then
+    DJANGO_PROJECT_DIR="${APP_DIR}/repo/ShareLand"
+    SETTINGS_MODULE="ShareLand.settings_production"
+    SETTINGS_IMPORT="from ShareLand.settings import *"
+    echo "Using: ${DJANGO_PROJECT_DIR}"
+elif [ -d "${APP_DIR}/repo/SHAReLAND_v.1.0/shareland/ShareLand" ]; then
+    DJANGO_PROJECT_DIR="${APP_DIR}/repo/SHAReLAND_v.1.0/shareland/ShareLand"
+    SETTINGS_MODULE="shareland.settings_production"
+    SETTINGS_IMPORT="from shareland.settings import *"
+    echo "Using: ${DJANGO_PROJECT_DIR}"
+elif [ -d "${APP_DIR}/repo/SHAReLAND_v.1.0/ShareLand" ]; then
+    DJANGO_PROJECT_DIR="${APP_DIR}/repo/SHAReLAND_v.1.0/ShareLand"
+    SETTINGS_MODULE="ShareLand.settings_production"
+    SETTINGS_IMPORT="from ShareLand.settings import *"
+    echo "Using: ${DJANGO_PROJECT_DIR}"
+else
+    echo -e "${RED}Error: Cannot find Django project directory (ShareLand)${NC}"
+    echo "Searched in:"
+    echo "  - ${APP_DIR}/repo/shareland/ShareLand"
+    echo "  - ${APP_DIR}/repo/ShareLand"
+    echo "  - ${APP_DIR}/repo/SHAReLAND_v.1.0/shareland/ShareLand"
+    echo "  - ${APP_DIR}/repo/SHAReLAND_v.1.0/ShareLand"
+    echo "Repository contents:"
+    find ${APP_DIR}/repo -type d -name "ShareLand" -o -name "shareland" 2>/dev/null | head -10
+    exit 1
+fi
+
 # Create production settings
-cat > ${APP_DIR}/repo/ShareLand/settings_production.py << 'DJANGO_SETTINGS'
-from ShareLand.settings import *
+cat > ${DJANGO_PROJECT_DIR}/settings_production.py << DJANGO_SETTINGS
+${SETTINGS_IMPORT}
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -213,7 +278,7 @@ LOGGING = {
 }
 DJANGO_SETTINGS
 
-chown ${APP_USER}:${APP_GROUP} ${APP_DIR}/repo/ShareLand/settings_production.py
+chown ${APP_USER}:${APP_GROUP} ${DJANGO_PROJECT_DIR}/settings_production.py
 
 # Create .env file
 cat > ${APP_DIR}/.env << ENV_FILE
@@ -239,14 +304,26 @@ chown -R ${APP_USER}:${APP_GROUP} /var/log/shareland
 chown -R ${APP_USER}:${APP_GROUP} ${APP_DIR}/static
 chown -R ${APP_USER}:${APP_GROUP} ${APP_DIR}/media
 
+# Determine working directory for manage.py commands and Gunicorn
+if [ -f "${APP_DIR}/repo/shareland/manage.py" ]; then
+    WORK_DIR="${APP_DIR}/repo/shareland"
+    WSGI_MODULE="shareland.wsgi:application"
+elif [ -f "${APP_DIR}/repo/manage.py" ]; then
+    WORK_DIR="${APP_DIR}/repo"
+    WSGI_MODULE="ShareLand.wsgi:application"
+else
+    echo -e "${RED}Error: Cannot find manage.py${NC}"
+    exit 1
+fi
+
 # Collect static files
 echo -e "${YELLOW}Collecting static files...${NC}"
-cd ${APP_DIR}/repo
+cd ${WORK_DIR}
 # Export environment variables from .env file and run with sudo -E to preserve env
 set -a
 source ${APP_DIR}/.env
 set +a
-sudo -E -u ${APP_USER} ${APP_DIR}/venv/bin/python manage.py collectstatic --noinput --settings=ShareLand.settings_production
+sudo -E -u ${APP_USER} ${APP_DIR}/venv/bin/python manage.py collectstatic --noinput --settings=${SETTINGS_MODULE}
 
 # Run migrations
 echo -e "${YELLOW}Running migrations...${NC}"
@@ -254,7 +331,7 @@ echo -e "${YELLOW}Running migrations...${NC}"
 set -a
 source ${APP_DIR}/.env
 set +a
-sudo -E -u ${APP_USER} ${APP_DIR}/venv/bin/python manage.py migrate --settings=ShareLand.settings_production
+sudo -E -u ${APP_USER} ${APP_DIR}/venv/bin/python manage.py migrate --settings=${SETTINGS_MODULE}
 
 # Step 11: Configure Gunicorn
 echo -e "${YELLOW}[11/13] Configuring Gunicorn and Supervisor...${NC}"
@@ -267,7 +344,7 @@ bind = "127.0.0.1:8001"
 workers = multiprocessing.cpu_count() * 2 + 1
 worker_class = "sync"
 worker_connections = 1000
-timeout = 30
+timeout = 120
 keepalive = 2
 max_requests = 1000
 max_requests_jitter = 100
@@ -285,22 +362,22 @@ GUNICORN_CONFIG
 chown ${APP_USER}:${APP_GROUP} ${APP_DIR}/gunicorn_config.py
 
 # Create Gunicorn startup script that loads environment variables
-cat > ${APP_DIR}/start_gunicorn.sh << 'START_SCRIPT'
+cat > ${APP_DIR}/start_gunicorn.sh << START_SCRIPT
 #!/bin/bash
 set -a
 source /var/www/shareland/.env
 set +a
-cd /var/www/shareland/repo
-exec /var/www/shareland/venv/bin/gunicorn -c /var/www/shareland/gunicorn_config.py ShareLand.wsgi:application
+cd ${WORK_DIR}
+exec /var/www/shareland/venv/bin/gunicorn -c /var/www/shareland/gunicorn_config.py ${WSGI_MODULE}
 START_SCRIPT
 
 chmod +x ${APP_DIR}/start_gunicorn.sh
 chown ${APP_USER}:${APP_GROUP} ${APP_DIR}/start_gunicorn.sh
 
 # Create Supervisor configuration
-cat > /etc/supervisor/conf.d/shareland.conf << 'SUPERVISOR_CONFIG'
+cat > /etc/supervisor/conf.d/shareland.conf << SUPERVISOR_CONFIG
 [program:shareland]
-directory=/var/www/shareland/repo
+directory=${WORK_DIR}
 command=/var/www/shareland/start_gunicorn.sh
 user=shareland
 autostart=true
@@ -415,7 +492,7 @@ echo -e "${YELLOW}Next Steps:${NC}"
 echo "1. Update DOMAIN variable in script to your actual domain"
 echo "2. Update ALLOWED_HOSTS in settings_production.py"
 echo "3. Configure SSL certificates: sudo certbot --nginx -d shareland.it -d www.shareland.it"
-echo "4. Create superuser: cd ${APP_DIR}/repo && ../venv/bin/python manage.py createsuperuser --settings=ShareLand.settings_production"
+echo "4. Create superuser: cd ${WORK_DIR} && ../venv/bin/python manage.py createsuperuser --settings=${SETTINGS_MODULE}"
 echo "5. Check application status: supervisorctl status"
 echo "6. View logs: tail -f /var/log/shareland/gunicorn_error.log"
 echo ""
