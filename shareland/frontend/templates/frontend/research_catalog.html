@@ -1,0 +1,833 @@
+{% extends "frontend/base.html" %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'frontend/public_research.css' %}">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" crossorigin="anonymous" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" crossorigin="anonymous" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin="anonymous"></script>
+<style>
+  .catalog-hero {
+    padding: 32px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+    color: #ffffff;
+    box-shadow: 0 4px 20px rgba(30, 64, 175, 0.15);
+  }
+  .catalog-hero h1 {
+    font-size: 2.2rem;
+    margin-bottom: 8px;
+    margin-top: 0;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -0.5px;
+  }
+  .catalog-hero h1 i {
+    margin-right: 12px;
+    color: #60a5fa;
+  }
+  .catalog-hero p {
+    margin: 0;
+    opacity: 0.95;
+    font-size: 1.05rem;
+    font-weight: 500;
+    color: #e0e7ff;
+  }
+  .tree-card {background: #fff;border-radius: 14px;box-shadow: 0 6px 24px rgba(15, 23, 42, 0.08);padding: 18px 20px;margin-top: 18px;border: 1px solid #e8eef5;}
+  .tree-header {display: flex;flex-wrap: wrap;align-items: baseline;gap: 10px;justify-content: space-between;}
+  .tree-title {font-size: 1.2rem;font-weight: 700;color: #102542;}
+  .tree-meta {display: flex;flex-wrap: wrap;gap: 8px;font-size: 0.9rem;color: #4a5568;}
+  .pill {display: inline-flex;align-items: center;gap: 6px;padding: 6px 10px;border-radius: 999px;background: #edf2f7;color: #2d3748;font-size: 0.82rem;font-weight: 600;}
+  .pill.warning {background: #fff7ed;color: #9c4221;}
+  .tree-body {margin-top: 14px;}
+  .tree-section {margin-bottom: 12px;}
+  .tree-label {font-weight: 700;color: #0f172a;margin-bottom: 8px;display: flex;align-items: center;gap: 8px;}
+  .tree-list {list-style: none;padding-left: 0;position: relative;margin: 0;}
+  .tree-list > li {position: relative;padding-left: 24px;margin-bottom: 8px;}
+  .tree-list > li::before {content: "";position: absolute;left: 8px;top: 0;height: 100%;width: 2px;background: #d7e2ec;border-radius: 3px;}
+  .tree-list > li:last-child::before {height: 18px;}
+  .tree-item {padding: 10px 12px;border-radius: 10px;background: #f7fafc;border: 1px solid #e3edf5;display: flex;flex-direction: column;gap: 4px;}
+  .tree-item a {color: #0f3d68;font-weight: 700;text-decoration: none;}
+  .tree-item a:hover {text-decoration: underline;}
+  .tree-subtext {font-size: 0.85rem;color: #4a5568;}
+  .nested {margin-top: 10px;padding-left: 14px;}
+  .empty-note {text-align: center;padding: 32px 16px;border: 1px dashed #cbd5e0;border-radius: 12px;color: #4a5568;background: #f8fafc;}
+  .tree-footer {margin-top: 10px;display: flex;flex-wrap: wrap;gap: 8px;}
+  .btn-slim {padding: 8px 12px;border-radius: 10px;border: 1px solid #0f3d68;color: #0f3d68;text-decoration: none;font-weight: 700;display: inline-flex;align-items: center;gap: 8px;}
+  .btn-slim:hover {background: #0f3d68;color: #fff;}
+  .view-switch {display: flex;gap: 10px;align-items: center;flex-wrap: wrap;margin: 18px 0;}
+  .view-switch .toggle-btn {border: 1px solid #0f3d68;background: #fff;color: #0f3d68;border-radius: 10px;padding: 8px 14px;font-weight: 700;cursor: pointer;}
+  .view-switch .toggle-btn.active {background: #0f3d68;color: #fff;}
+  #catalogMapSection {display: none; position: relative; width: 100%;}
+  #catalogMap {height: calc(100vh - 180px); min-height: 600px; width: 100%; border-radius: 14px; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.16); border: 1px solid #e8eef5; background: #f3f4f6; z-index: 1;}
+  
+  /* Custom marker styles for better visibility */
+  .custom-site-marker, .custom-evidence-marker {
+    background: transparent !important;
+    border: none !important;
+  }
+  
+  /* Enhanced cluster marker styles */
+  .marker-cluster-site {
+    background-color: rgba(234, 179, 8, 0.6) !important;
+  }
+  .marker-cluster-site div {
+    background-color: #eab308 !important;
+    color: white !important;
+    font-weight: bold !important;
+    text-align: center !important;
+    border-radius: 50% !important;
+    border: 3px solid white !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+  }
+  
+  .marker-cluster-evidence {
+    background-color: rgba(22, 163, 74, 0.6) !important;
+  }
+  .marker-cluster-evidence div {
+    background-color: #16a34a !important;
+    color: white !important;
+    font-weight: bold !important;
+    text-align: center !important;
+    border-radius: 50% !important;
+    border: 3px solid white !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+  }
+  
+  /* Make markers more visible on hover */
+  .leaflet-marker-icon:hover {
+    transform: scale(1.15);
+    transition: transform 0.2s;
+    z-index: 1000 !important;
+  }
+  
+  /* Ensure larger markers are properly visible */
+  .custom-site-marker div,
+  .custom-evidence-marker div {
+    transition: transform 0.2s ease;
+  }
+  
+  .custom-site-marker:hover div,
+  .custom-evidence-marker:hover div {
+    transform: scale(1.1);
+  }
+</style>
+
+<div class="container mt-4 mb-4">
+  <div class="catalog-hero">
+    <h1><i class="fas fa-sitemap"></i> Research Catalog</h1>
+    <p>Browse researches with their sites and archaeological evidences in one tree view.</p>
+  </div>
+
+  <!-- Search Form + View Switcher -->
+  <div style="margin-top: 20px; margin-bottom: 10px;">
+    <form method="get" style="display: flex; gap: 10px; flex-wrap: wrap;">
+      <input 
+        type="text" 
+        name="q" 
+        placeholder="Search by research title, abstract, or keywords..." 
+        value="{{ search_query }}" 
+        class="form-control" 
+        style="flex: 1; min-width: 240px;"
+      >
+      <div class="view-switch">
+        <button type="button" id="treeViewBtn" class="toggle-btn"><i class="fas fa-stream"></i> Tree view</button>
+        <button type="button" id="mapViewBtn" class="toggle-btn active"><i class="fas fa-map"></i> Map view</button>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button type="submit" class="btn btn-primary">Search</button>
+        {% if search_query %}
+          <a href="{% url 'research-catalog' %}" class="btn btn-secondary">Clear</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  <div id="mapFilters" style="margin: 10px 0 14px; display: flex; flex-wrap: wrap; gap: 10px;">
+    <select id="filterResearch" class="form-control" style="width: 200px;"></select>
+    <select id="filterRegion" class="form-control" style="width: 180px;"></select>
+    <select id="filterMunicipality" class="form-control" style="width: 180px;"></select>
+    <select id="filterSite" class="form-control" style="width: 200px;"></select>
+    <select id="filterEvidence" class="form-control" style="width: 220px;"></select>
+  </div>
+
+  {% if search_query %}
+    <div style="margin-bottom: 16px; padding: 12px 16px; background: #e7f3ff; border-left: 4px solid #0f3d68; border-radius: 6px;">
+      <strong>Search Results:</strong> Found {{ paginator.count }} research record{{ paginator.count|pluralize }} for "{{ search_query }}"
+    </div>
+  {% endif %}
+
+  <div id="catalogTreeSection">
+  {% if catalog_entries %}
+    {% for entry in catalog_entries %}
+      <div class="tree-card">
+        <div class="tree-header">
+          <div>
+            <div class="tree-title">
+              <a href="{% url 'public-research-detail' entry.research.id %}" class="text-decoration-none text-reset">
+                {{ entry.research.title|default:"Untitled Research" }}
+              </a>
+            </div>
+            <div class="tree-meta">
+              {% if entry.research.year %}<span class="pill"><i class="fas fa-calendar-alt"></i> {{ entry.research.year }}</span>{% endif %}
+              {% if entry.research.type %}<span class="pill warning"><i class="fas fa-tag"></i> {{ entry.research.type }}</span>{% endif %}
+              {% if entry.research.submitted_by %}<span class="pill"><i class="fas fa-user"></i> {{ entry.research.submitted_by.profile.get_display_name }}</span>{% endif %}
+            </div>
+          </div>
+          <div class="pill"><i class="fas fa-map-marker-alt"></i> {{ entry.sites|length }} sites</div>
+        </div>
+
+        <div class="tree-body">
+          {% if entry.direct_evidences %}
+            <div class="tree-section">
+              <div class="tree-label"><i class="fas fa-archway"></i> Evidence linked directly to the research ({{ entry.direct_evidences|length }})</div>
+              <ul class="tree-list">
+                {% for evidence in entry.direct_evidences %}
+                  <li>
+                    <div class="tree-item">
+                      <a href="{% url 'evidence_detail' evidence.id %}">
+                        {% if evidence.evidence_name %}
+                          {{ evidence.evidence_name }}
+                        {% else %}
+                          No title for this evidence
+                        {% endif %}
+                      </a>
+                      {% if evidence.description %}
+                        <div class="tree-subtext">{{ evidence.description|truncatewords:16 }}</div>
+                      {% elif evidence.id_country or evidence.id_region %}
+                        <div class="tree-subtext">
+                          {% if evidence.id_country %}{{ evidence.id_country }}{% endif %}{% if evidence.id_region %} · {{ evidence.id_region }}{% endif %}
+                        </div>
+                      {% endif %}
+                    </div>
+                  </li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% endif %}
+
+          <div class="tree-section">
+            <div class="tree-label"><i class="fas fa-landmark"></i> Sites ({{ entry.sites|length }})</div>
+            {% if entry.sites %}
+              <ul class="tree-list">
+                {% for site in entry.sites %}
+                  <li>
+                    <div class="tree-item">
+                      <a href="{% url 'site_detail' site.site.id %}">
+                        {% if site.site.site_name %}
+                          {{ site.site.site_name }}
+                        {% else %}
+                          Site #{{ site.site.id }}
+                        {% endif %}
+                      </a>
+                      {% if site.site.description %}
+                        <div class="tree-subtext">{{ site.site.description|truncatewords:18 }}</div>
+                      {% elif site.site.locality_name %}
+                        <div class="tree-subtext"><i class="fas fa-map-pin"></i> {{ site.site.locality_name }}</div>
+                      {% endif %}
+                    </div>
+                    {% if site.evidences %}
+                      <ul class="tree-list nested">
+                        {% for evidence in site.evidences %}
+                          <li>
+                            <div class="tree-item">
+                              <a href="{% url 'evidence_detail' evidence.id %}">
+                                {% if evidence.evidence_name %}
+                                  {{ evidence.evidence_name }}
+                                {% else %}
+                                  No title for this evidence
+                                {% endif %}
+                              </a>
+                              {% if evidence.description %}
+                                <div class="tree-subtext">{{ evidence.description|truncatewords:16 }}</div>
+                              {% elif evidence.id_archaeological_evidence_typology %}
+                                <div class="tree-subtext">{{ evidence.id_archaeological_evidence_typology }}</div>
+                              {% endif %}
+                            </div>
+                          </li>
+                        {% endfor %}
+                      </ul>
+                    {% else %}
+                      <div class="tree-subtext mt-2">No evidence linked to this site yet.</div>
+                    {% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <div class="tree-subtext">No sites linked to this research.</div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="tree-footer">
+          <a class="btn-slim" href="{% url 'public-research-detail' entry.research.id %}"><i class="fas fa-eye"></i> View details</a>
+          <a class="btn-slim" href="{% url 'public-research-list' %}"><i class="fas fa-list"></i> All researches</a>
+        </div>
+      </div>
+    {% endfor %}
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+      <nav style="margin-top: 32px; display: flex; justify-content: center; gap: 8px;">
+        {% if page_obj.has_previous %}
+          <a href="?page=1{% if search_query %}&q={{ search_query|urlencode }}{% endif %}" class="btn btn-outline-secondary btn-sm">First</a>
+          <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}" class="btn btn-outline-secondary btn-sm">Previous</a>
+        {% endif %}
+
+        <span style="padding: 8px 12px; align-self: center;">
+          Page <strong>{{ page_obj.number }}</strong> of <strong>{{ paginator.num_pages }}</strong>
+        </span>
+
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}" class="btn btn-outline-secondary btn-sm">Next</a>
+          <a href="?page={{ paginator.num_pages }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}" class="btn btn-outline-secondary btn-sm">Last</a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  {% else %}
+    <div class="empty-note">
+      <i class="fas fa-search"></i>
+      <p class="mb-0">No research records found yet.</p>
+    </div>
+  {% endif %}
+  </div>
+
+  <div id="catalogMapSection">
+    <div id="catalogMap"></div>
+  </div>
+</div>
+
+{{ map_data_json|json_script:"catalog-map-data" }}
+<script>
+  (function() {
+    'use strict';
+    
+    const treeBtn = document.getElementById('treeViewBtn');
+    const mapBtn = document.getElementById('mapViewBtn');
+    const treeSection = document.getElementById('catalogTreeSection');
+    const mapSection = document.getElementById('catalogMapSection');
+    const mapFilters = document.getElementById('mapFilters');
+    
+    let map, mapInitialized = false;
+    let bounds, researchLayers = [], siteLayers = [], evidenceLayers = [];
+    let researchOptions, regionOptions, municipalityOptions, siteOptions, evidenceOptions;
+    let selResearch, selRegion, selMunicipality, selSite, selEvidence;
+    let siteClusterGroup, evidenceClusterGroup;
+
+    function applyFilters() {
+      if (!map) return;
+      
+      const rVal = selResearch ? (selResearch.value || 'all') : 'all';
+      const regVal = selRegion ? (selRegion.value || 'all') : 'all';
+      const munVal = selMunicipality ? (selMunicipality.value || 'all') : 'all';
+      const siteVal = selSite ? (selSite.value || 'all') : 'all';
+      const evVal = selEvidence ? (selEvidence.value || 'all') : 'all';
+
+      const visibleBounds = L.latLngBounds();
+
+      researchLayers.forEach(({layer, researchId}) => {
+        const show = (rVal === 'all' || String(researchId) === rVal);
+        if (show) {
+          if (!map.hasLayer(layer)) layer.addTo(map);
+          if (layer.getBounds) visibleBounds.extend(layer.getBounds());
+        } else {
+          if (map.hasLayer(layer)) map.removeLayer(layer);
+        }
+      });
+
+      siteLayers.forEach(({layer, researchId, siteId, region, municipality}) => {
+        const matchResearch = (rVal === 'all' || String(researchId) === rVal);
+        const matchRegion = (regVal === 'all' || region === regVal);
+        const matchMun = (munVal === 'all' || municipality === munVal);
+        const matchSite = (siteVal === 'all' || String(siteId) === siteVal);
+        const show = matchResearch && matchRegion && matchMun && matchSite;
+        if (show) {
+          if (!siteClusterGroup.hasLayer(layer)) {
+            siteClusterGroup.addLayer(layer);
+          }
+          if (layer.getLatLng) visibleBounds.extend(layer.getLatLng());
+        } else {
+          if (siteClusterGroup.hasLayer(layer)) {
+            siteClusterGroup.removeLayer(layer);
+          }
+        }
+      });
+
+      evidenceLayers.forEach(({layer, researchId, siteId, evidenceId, region, municipality}) => {
+        const matchResearch = (rVal === 'all' || String(researchId) === rVal);
+        const matchRegion = (regVal === 'all' || region === regVal);
+        const matchMun = (munVal === 'all' || municipality === munVal);
+        const matchSite = (siteVal === 'all' || (siteId && String(siteId) === siteVal));
+        const matchEvidence = (evVal === 'all' || String(evidenceId) === evVal);
+        const show = matchResearch && matchRegion && matchMun && matchSite && matchEvidence;
+        if (show) {
+          if (!evidenceClusterGroup.hasLayer(layer)) {
+            evidenceClusterGroup.addLayer(layer);
+          }
+          if (layer.getLatLng) visibleBounds.extend(layer.getLatLng());
+        } else {
+          if (evidenceClusterGroup.hasLayer(layer)) {
+            evidenceClusterGroup.removeLayer(layer);
+          }
+        }
+      });
+
+      if (visibleBounds.isValid() && map) {
+        map.fitBounds(visibleBounds, { padding: [50, 50], maxZoom: 15 });
+      } else if (bounds && bounds.isValid() && map) {
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+      } else if (map) {
+        map.setView([41.9, 12.5], 6);
+      }
+    }
+
+    function setMode(mode) {
+      const isMap = mode === 'map';
+      if (treeSection) treeSection.style.display = isMap ? 'none' : 'block';
+      if (mapSection) mapSection.style.display = isMap ? 'block' : 'none';
+      if (mapFilters) mapFilters.style.display = isMap ? 'flex' : 'none';
+      if (treeBtn) treeBtn.classList.toggle('active', !isMap);
+      if (mapBtn) mapBtn.classList.toggle('active', isMap);
+      
+      if (isMap) {
+        // Ensure map section is visible first
+        const mapContainer = document.getElementById('catalogMap');
+        if (mapContainer) {
+          mapContainer.style.display = 'block';
+          mapContainer.style.height = 'calc(100vh - 180px)';
+          mapContainer.style.minHeight = '600px';
+          mapContainer.style.width = '100%';
+        }
+        
+        // Wait for container to be fully visible before initializing
+        setTimeout(() => {
+          if (!mapInitialized) {
+            if (typeof L !== 'undefined') {
+              initializeMap();
+            } else {
+              console.error('Leaflet library (L) not loaded!');
+              const mapContainer = document.getElementById('catalogMap');
+              if (mapContainer) {
+                mapContainer.innerHTML = '<div style="padding: 40px; text-align: center; color: #d32f2f;"><i class="fas fa-exclamation-triangle"></i> Error: Map library failed to load. Please refresh the page.</div>';
+              }
+            }
+          } else if (map) {
+            // Map already initialized, just invalidate size and refresh
+            setTimeout(() => {
+              map.invalidateSize();
+              applyFilters();
+            }, 150);
+          }
+        }, 200);
+      }
+    }
+
+    function initializeMap() {
+      if (mapInitialized) {
+        if (map) {
+          map.invalidateSize();
+        }
+        return;
+      }
+      
+      if (typeof L === 'undefined') {
+        console.error('Leaflet library (L) is not loaded!');
+        const mapContainer = document.getElementById('catalogMap');
+        if (mapContainer) {
+          mapContainer.innerHTML = '<div style="padding: 40px; text-align: center; color: #d32f2f;"><i class="fas fa-exclamation-triangle"></i> Error: Map library failed to load. Please refresh the page.</div>';
+        }
+        return;
+      }
+      
+      const mapDataScript = document.getElementById('catalog-map-data');
+      if (!mapDataScript) {
+        console.error('Map data script not found!');
+        return;
+      }
+      
+      let mapData = [];
+      try {
+        const rawMapData = JSON.parse(mapDataScript.textContent || '[]');
+        mapData = Array.isArray(rawMapData) ? rawMapData : [];
+      } catch (e) {
+        console.error('Error parsing map data:', e);
+        return;
+      }
+      
+      const mapContainer = document.getElementById('catalogMap');
+      if (!mapContainer) {
+        console.error('Map container element not found!');
+        return;
+      }
+
+      // Ensure container has proper dimensions and is visible BEFORE initializing Leaflet
+      mapSection.style.display = 'block';
+      mapContainer.style.height = 'calc(100vh - 180px)';
+      mapContainer.style.minHeight = '600px';
+      mapContainer.style.width = '100%';
+      mapContainer.style.display = 'block';
+
+      // Force a reflow to ensure dimensions are calculated
+      void mapContainer.offsetHeight;
+
+      try {
+        map = L.map('catalogMap', { 
+          preferCanvas: false, 
+          scrollWheelZoom: true,
+          zoomControl: true,
+          doubleClickZoom: true,
+          boxZoom: true
+        });
+        window.catalogMap = map;
+
+        // Add OSM tile layer
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          minZoom: 1,
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        });
+        osmLayer.addTo(map);
+        
+        console.log('Map initialized successfully with', mapData.length, 'research items');
+      } catch (e) {
+        console.error('Error initializing Leaflet map:', e);
+        mapContainer.innerHTML = '<div style="padding: 40px; text-align: center; color: #d32f2f;"><i class="fas fa-exclamation-triangle"></i> Error initializing map: ' + e.message + '</div>';
+        return;
+      }
+
+      bounds = L.latLngBounds();
+      researchLayers = [];
+      siteLayers = [];
+      evidenceLayers = [];
+      researchOptions = new Map();
+      regionOptions = new Map();
+      municipalityOptions = new Map();
+      siteOptions = new Map();
+      evidenceOptions = new Map();
+
+      // Create cluster groups with configuration for better visibility
+      siteClusterGroup = L.markerClusterGroup({
+        maxClusterRadius: 80,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: true,
+        zoomToBoundsOnClick: true,
+        disableClusteringAtZoom: 15,
+        iconCreateFunction: function(cluster) {
+          const count = cluster.getChildCount();
+          // Make cluster icons larger and scale with count
+          let size = 50;
+          if (count > 50) size = 60;
+          else if (count > 10) size = 55;
+          return L.divIcon({
+            html: '<div style="background-color: #eab308; color: white; border-radius: 50%; width: ' + size + 'px; height: ' + size + 'px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 4px solid white; box-shadow: 0 3px 10px rgba(0,0,0,0.4); font-size: ' + (size > 55 ? '16px' : '14px') + ';">' + count + '</div>',
+            className: 'marker-cluster marker-cluster-site',
+            iconSize: L.point(size, size)
+          });
+        }
+      });
+
+      evidenceClusterGroup = L.markerClusterGroup({
+        maxClusterRadius: 80,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: true,
+        zoomToBoundsOnClick: true,
+        disableClusteringAtZoom: 15,
+        iconCreateFunction: function(cluster) {
+          const count = cluster.getChildCount();
+          // Make cluster icons larger and scale with count
+          let size = 50;
+          if (count > 50) size = 60;
+          else if (count > 10) size = 55;
+          return L.divIcon({
+            html: '<div style="background-color: #16a34a; color: white; border-radius: 50%; width: ' + size + 'px; height: ' + size + 'px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 4px solid white; box-shadow: 0 3px 10px rgba(0,0,0,0.4); font-size: ' + (size > 55 ? '16px' : '14px') + ';">' + count + '</div>',
+            className: 'marker-cluster marker-cluster-evidence',
+            iconSize: L.point(size, size)
+          });
+        }
+      });
+
+      // Add cluster groups to map
+      siteClusterGroup.addTo(map);
+      evidenceClusterGroup.addTo(map);
+
+      // Enhanced marker styles - larger and more visible
+      const siteStyle = { 
+        radius: 12, 
+        color: '#ffffff', 
+        fillColor: '#eab308', 
+        fillOpacity: 0.9, 
+        weight: 3 
+      };
+      const evidenceStyle = { 
+        radius: 10, 
+        color: '#ffffff', 
+        fillColor: '#16a34a', 
+        fillOpacity: 0.9, 
+        weight: 3 
+      };
+
+      const escapeHtml = (unsafe) => {
+        if (!unsafe) return '';
+        return String(unsafe).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+      };
+
+      mapData.forEach((research) => {
+        // Research polygon in red border
+        if (research.geometry && Array.isArray(research.geometry) && research.geometry.length > 0) {
+          try {
+            // Ensure coordinates are in [lat, lon] format and are valid numbers
+            const coords = research.geometry.map(coord => {
+              if (Array.isArray(coord) && coord.length >= 2) {
+                const lat = parseFloat(coord[0]);
+                const lon = parseFloat(coord[1]);
+                if (!isNaN(lat) && !isNaN(lon)) {
+                  return [lat, lon];
+                }
+              }
+              return null;
+            }).filter(c => c !== null);
+            
+            if (coords.length > 0) {
+              const poly = L.polygon(coords, {
+                color: '#ef4444',
+                weight: 2,
+                fillColor: '#ef4444',
+                fillOpacity: 0.15
+              }).addTo(map);
+              
+              // Create clickable popup with link
+              const researchUrl = `/public/research/${research.id}/`;
+              const popupContent = `
+                <div style="text-align: center; padding: 8px; min-width: 150px;">
+                  <strong style="display: block; margin-bottom: 8px; color: #102542;">${escapeHtml(research.title || 'Research')}</strong>
+                  <a href="${researchUrl}" style="color: #0f3d68; text-decoration: none; font-weight: 600; padding: 6px 12px; background: #e7f3ff; border-radius: 6px; display: inline-block; transition: background 0.2s;" 
+                     onmouseover="this.style.background='#0f3d68'; this.style.color='#fff';" 
+                     onmouseout="this.style.background='#e7f3ff'; this.style.color='#0f3d68';">
+                    <i class="fas fa-eye"></i> View Details
+                  </a>
+                </div>
+              `;
+              poly.bindPopup(popupContent);
+              
+              // Make polygon clickable to navigate to detail page
+              poly.on('click', function() {
+                window.location.href = researchUrl;
+              });
+              
+              // Add cursor pointer style
+              poly.on('mouseover', function() {
+                map.getContainer().style.cursor = 'pointer';
+              });
+              poly.on('mouseout', function() {
+                map.getContainer().style.cursor = '';
+              });
+              
+              bounds.extend(poly.getBounds());
+              researchLayers.push({layer: poly, researchId: research.id});
+            }
+          } catch (e) {
+            console.error('Error creating research polygon:', e, research);
+          }
+        }
+
+        // Sites (yellow markers)
+        (research.sites || []).forEach((s) => {
+          const lat = parseFloat(s.lat);
+          const lon = parseFloat(s.lon);
+          if (!isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0) {
+            try {
+              // Create a more visible marker with icon - larger size
+              const iconHtml = '<div style="background-color: #eab308; width: 36px; height: 36px; border-radius: 50%; border: 4px solid white; box-shadow: 0 3px 8px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;"><i class="fas fa-map-marker-alt" style="color: white; font-size: 16px;"></i></div>';
+              const icon = L.divIcon({
+                html: iconHtml,
+                className: 'custom-site-marker',
+                iconSize: [36, 36],
+                iconAnchor: [18, 18]
+              });
+              
+              // Use regular marker with icon for better visibility
+              const siteMarker = L.marker([lat, lon], { icon: icon });
+              
+              // Create clickable popup with link
+              const siteUrl = `/site/${s.id}/`;
+              const popupContent = `
+                <div style="text-align: center; padding: 8px; min-width: 150px;">
+                  <strong style="display: block; margin-bottom: 4px; color: #102542;">${escapeHtml(s.name || 'Site')}</strong>
+                  <span style="color: #666; font-size: 0.85em; display: block; margin-bottom: 8px;">Site #${s.id}</span>
+                  <a href="${siteUrl}" style="color: #0f3d68; text-decoration: none; font-weight: 600; padding: 6px 12px; background: #fff7ed; border-radius: 6px; display: inline-block; transition: background 0.2s;" 
+                     onmouseover="this.style.background='#eab308'; this.style.color='#fff';" 
+                     onmouseout="this.style.background='#fff7ed'; this.style.color='#0f3d68';">
+                    <i class="fas fa-eye"></i> View Details
+                  </a>
+                </div>
+              `;
+              siteMarker.bindPopup(popupContent);
+              
+              // Make marker clickable to navigate to detail page
+              siteMarker.on('click', function() {
+                window.location.href = siteUrl;
+              });
+              
+              // Add cursor pointer style
+              siteMarker.on('mouseover', function() {
+                map.getContainer().style.cursor = 'pointer';
+              });
+              siteMarker.on('mouseout', function() {
+                map.getContainer().style.cursor = '';
+              });
+              
+              // Add to cluster group instead of directly to map
+              siteClusterGroup.addLayer(siteMarker);
+              
+              bounds.extend([lat, lon]);
+              siteLayers.push({layer: siteMarker, researchId: research.id, siteId: s.id, region: s.region || '', municipality: s.municipality || ''});
+              siteOptions.set(s.id, s.name || `Site #${s.id}`);
+              if (s.region) regionOptions.set(s.region, s.region);
+              if (s.municipality) municipalityOptions.set(s.municipality, s.municipality);
+            } catch (e) {
+              console.error('Error creating site marker:', e, s);
+            }
+          }
+        });
+
+        // Evidences (green markers)
+        (research.evidences || []).forEach((e) => {
+          const lat = parseFloat(e.lat);
+          const lon = parseFloat(e.lon);
+          if (!isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0) {
+            try {
+              // Create a more visible marker with icon - larger size
+              const iconHtml = '<div style="background-color: #16a34a; width: 32px; height: 32px; border-radius: 50%; border: 4px solid white; box-shadow: 0 3px 8px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;"><i class="fas fa-archway" style="color: white; font-size: 14px;"></i></div>';
+              const icon = L.divIcon({
+                html: iconHtml,
+                className: 'custom-evidence-marker',
+                iconSize: [32, 32],
+                iconAnchor: [16, 16]
+              });
+              
+              // Use regular marker with icon instead of circleMarker for better visibility
+              const evidenceMarker = L.marker([lat, lon], { icon: icon });
+              
+              // Create clickable popup with link
+              const evidenceUrl = `/evidence/${e.id}/detail/`;
+              const popupContent = `
+                <div style="text-align: center; padding: 8px; min-width: 150px;">
+                  <strong style="display: block; margin-bottom: 4px; color: #102542;">${escapeHtml(e.name || 'Evidence')}</strong>
+                  <span style="color: #666; font-size: 0.85em; display: block; margin-bottom: 8px;">Evidence #${e.id}</span>
+                  <a href="${evidenceUrl}" style="color: #0f3d68; text-decoration: none; font-weight: 600; padding: 6px 12px; background: #f0fdf4; border-radius: 6px; display: inline-block; transition: background 0.2s;" 
+                     onmouseover="this.style.background='#16a34a'; this.style.color='#fff';" 
+                     onmouseout="this.style.background='#f0fdf4'; this.style.color='#0f3d68';">
+                    <i class="fas fa-eye"></i> View Details
+                  </a>
+                </div>
+              `;
+              evidenceMarker.bindPopup(popupContent);
+              
+              // Make marker clickable to navigate to detail page
+              evidenceMarker.on('click', function() {
+                window.location.href = evidenceUrl;
+              });
+              
+              // Add cursor pointer style
+              evidenceMarker.on('mouseover', function() {
+                map.getContainer().style.cursor = 'pointer';
+              });
+              evidenceMarker.on('mouseout', function() {
+                map.getContainer().style.cursor = '';
+              });
+              
+              // Add to cluster group instead of directly to map
+              evidenceClusterGroup.addLayer(evidenceMarker);
+              
+              bounds.extend([lat, lon]);
+              evidenceLayers.push({layer: evidenceMarker, researchId: research.id, siteId: e.site_id || null, evidenceId: e.id, region: e.region || '', municipality: e.municipality || ''});
+              evidenceOptions.set(e.id, e.name || `Evidence #${e.id}`);
+              if (e.region) regionOptions.set(e.region, e.region);
+              if (e.municipality) municipalityOptions.set(e.municipality, e.municipality);
+            } catch (e) {
+              console.error('Error creating evidence marker:', e, e);
+            }
+          }
+        });
+
+        researchOptions.set(research.id, research.title || `Research #${research.id}`);
+      });
+
+      // Populate filter selects
+      function populateSelect(sel, optionsMap, label) {
+        if (!sel) return;
+        sel.innerHTML = '';
+        const allOpt = document.createElement('option');
+        allOpt.value = 'all';
+        allOpt.textContent = label;
+        sel.appendChild(allOpt);
+        Array.from(optionsMap.entries()).sort((a,b)=> a[1].localeCompare(b[1])).forEach(([val,text]) => {
+          const o = document.createElement('option');
+          o.value = String(val);
+          o.textContent = text;
+          sel.appendChild(o);
+        });
+      }
+
+      selResearch = document.getElementById('filterResearch');
+      selRegion = document.getElementById('filterRegion');
+      selMunicipality = document.getElementById('filterMunicipality');
+      selSite = document.getElementById('filterSite');
+      selEvidence = document.getElementById('filterEvidence');
+
+      populateSelect(selResearch, researchOptions, 'All researches');
+      populateSelect(selRegion, regionOptions, 'All regions');
+      populateSelect(selMunicipality, municipalityOptions, 'All municipalities');
+      populateSelect(selSite, siteOptions, 'All sites');
+      populateSelect(selEvidence, evidenceOptions, 'All evidences');
+
+      [selResearch, selRegion, selMunicipality, selSite, selEvidence].forEach(sel => {
+        if (sel) sel.addEventListener('change', applyFilters);
+      });
+
+      // Initialize map view after a delay to ensure container is fully rendered
+      setTimeout(() => {
+        if (!map) return;
+        
+        map.invalidateSize();
+        
+        // Set initial view based on bounds
+        if (bounds && bounds.isValid()) {
+          try {
+            const north = bounds.getNorth();
+            const south = bounds.getSouth();
+            if (north && south && north !== south) {
+              map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+            } else {
+              map.setView([41.9, 12.5], 6); // Default to Italy
+            }
+          } catch (e) {
+            console.warn('Error fitting bounds:', e);
+            map.setView([41.9, 12.5], 6);
+          }
+        } else {
+          // Default view: Italy
+          map.setView([41.9, 12.5], 6);
+        }
+        
+        // Apply filters after view is set
+        applyFilters();
+      }, 500);
+
+      mapInitialized = true;
+    }
+
+    if (treeBtn) treeBtn.addEventListener('click', () => setMode('tree'));
+    if (mapBtn) mapBtn.addEventListener('click', () => setMode('map'));
+
+    // Start with map view if map button is active
+    if (mapBtn && mapBtn.classList.contains('active')) {
+      setMode('map');
+    } else {
+      setMode('tree');
+    }
+  })();
+</script>
+{% endblock %}

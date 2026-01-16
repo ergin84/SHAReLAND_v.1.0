@@ -1,0 +1,739 @@
+{% extends "frontend/base.html" %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'frontend/public_research.css' %}">
+
+<div class="container mt-4">
+    <div class="public-research-container">
+        <div class="mb-4">
+            <h2 class="mb-3"><i class="fas fa-plus-circle"></i> Create New Research</h2>
+        </div>
+
+        <form action="" method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <!-- Section 1: Authors -->
+            <div class="research-card mb-4">
+                <div class="research-card-header">
+                    <h5 class="mb-0"><i class="fas fa-users"></i> 1. CHI - Autori della Ricerca</h5>
+                </div>
+                <div class="research-card-body">
+                    <div class="form-group mb-4">
+                        <label class="form-label"><strong>Sei l'autore principale della ricerca?</strong></label>
+                        <div class="mt-2">
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" id="author-yes" name="is_self_author" value="yes" checked>
+                                <label class="form-check-label" for="author-yes">Sì</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" id="author-no" name="is_self_author" value="no">
+                                <label class="form-check-label" for="author-no">No</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="author-fields" style="display:none;">
+                        <!-- Selected Author Display -->
+                        <div id="selected-author-display" class="alert alert-success" style="display:none;">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-2"><i class="fas fa-check-circle"></i> Autore Selezionato</h6>
+                                    <div id="selected-author-info">
+                                        <!-- Author info will be populated here -->
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="clear-author-selection">
+                                    <i class="fas fa-times"></i> Cambia
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="author-search-container" id="author-search-container">
+                            <div class="position-relative">
+                                <input type="text" class="form-control author-search mb-2" id="author-search" name="author_search"
+                                       placeholder="Cerca autore principale per cognome, username o email..." autocomplete="off">
+                                <input type="hidden" id="author-id" name="author_id">
+                                <input type="hidden" id="author-user-id" name="author_user_id">
+                                <div id="author-suggestions" class="author-suggestions dropdown-menu w-100 mt-1" style="display:none; position:absolute; z-index:1000; max-height:300px; overflow-y:auto;"></div>
+                            </div>
+                        </div>
+
+                        <div id="new-author-fields" class="mt-3" style="display:none;">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i> <strong>Nuovo autore</strong><br>
+                                Verrà creato un nuovo utente con password generata automaticamente. L'utente riceverà un'email con le credenziali e potrà modificare la password al primo accesso.
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <input type="text" name="author_name" id="author-name-input" class="form-control mb-2" placeholder="Nome *">
+                                </div>
+                                <div class="col-md-6">
+                                    <input type="text" name="author_surname" id="author-surname-input" class="form-control mb-2" placeholder="Cognome *">
+                                </div>
+                                <div class="col-md-12">
+                                    <input type="email" name="author_email" id="author-email-input" class="form-control mb-2" placeholder="Email di contatto *">
+                                </div>
+                                <div class="col-md-6">
+                                    <input type="text" name="author_affiliation" id="author-affiliation-input" class="form-control mb-2" placeholder="Affiliazione (opzionale)">
+                                </div>
+                                <div class="col-md-6">
+                                    <input type="text" name="author_orcid" id="author-orcid-input" class="form-control mb-2" placeholder="ORCID (opzionale)">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Co-authors -->
+                    <div class="mt-4 pt-3 border-top">
+                        <h6 class="mb-3"><i class="fas fa-user-friends"></i> Co-autori</h6>
+                        <div id="coauthors-container"></div>
+                        <button type="button" id="add-coauthor" class="btn btn-primary-modern btn-modern btn-sm mt-2">
+                            <i class="fas fa-plus"></i> Aggiungi co-autore
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 2: Research Details -->
+            <div class="research-card mb-4">
+                <div class="research-card-header">
+                    <h5 class="mb-0"><i class="fas fa-file-alt"></i> 2. COSA - Dettagli della Ricerca</h5>
+                </div>
+                <div class="research-card-body">
+                    {{ form|crispy }}
+                </div>
+            </div>
+
+            <!-- Section 3: Research Area -->
+            <div class="research-card mb-4">
+                <div class="research-card-header">
+                    <h5 class="mb-0"><i class="fas fa-map-marked-alt"></i> 3. DOVE – Area di Indagine</h5>
+                </div>
+                <div class="research-card-body">
+                    <div class="form-group mb-3">
+                        <button type="button" class="btn btn-primary-modern btn-modern me-2" data-bs-toggle="modal"
+                                data-bs-target="#uploadShapefileModal">
+                            <i class="fas fa-upload"></i> Carica shapefile
+                        </button>
+                        <button type="button" class="btn btn-primary-modern btn-modern" data-bs-toggle="modal"
+                                data-bs-target="#drawMapModal">
+                            <i class="fas fa-draw-polygon"></i> Seleziona area su mappa
+                        </button>
+                    </div>
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle"></i> La geometria verrà salvata automaticamente dal disegno sulla mappa o dal file shapefile caricato.
+                    </small>
+                </div>
+            </div>
+
+            <!-- Section 4: Context -->
+            <div class="research-card mb-4">
+                <div class="research-card-header">
+                    <h5 class="mb-0"><i class="fas fa-landmark"></i> 4. CONTESTO – Siti e/o Evidenze Archeologiche</h5>
+                </div>
+                <div class="research-card-body">
+                    <p class="text-muted mb-0">
+                        <i class="fas fa-info-circle"></i> Dopo aver salvato la ricerca, potrai accedere ai dettagli per aggiungere un sito o un'evidenza archeologica.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="text-center mb-4">
+                <button class="btn btn-primary-modern btn-modern btn-lg" type="submit">
+                    <i class="fas fa-save"></i> Salva Ricerca
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Upload Shapefile -->
+<div class="modal fade" id="uploadShapefileModal" tabindex="-1" aria-labelledby="uploadShapefileLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="uploadShapefileLabel"><i class="fas fa-upload"></i> Carica uno shapefile</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+            </div>
+            <div class="modal-body">
+                <input type="file" name="shapefile" id="shapefileInput" accept=".zip" class="form-control mb-3">
+                <small class="text-muted">Carica un file .zip contenente .shp, .shx e .dbf</small>
+                <div id="shapefileMap" style="height: 400px; border: 1px solid var(--border-color); border-radius: 6px; margin-top: 15px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary-modern btn-modern" id="acceptShapefileArea">Visualizza Shape</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Mappa -->
+<div class="modal fade" id="drawMapModal" tabindex="-1" aria-labelledby="drawMapLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="drawMapLabel"><i class="fas fa-draw-polygon"></i> Disegna l'area sulla mappa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+            </div>
+            <div class="modal-body">
+                <div id="map" style="height: 500px; border: 1px solid var(--border-color); border-radius: 6px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const radios = document.getElementsByName('is_self_author');
+        const authorFields = document.getElementById('author-fields');
+        const authorSearch = document.getElementById('author-search');
+        const authorSuggestions = document.getElementById('author-suggestions');
+        const authorIdField = document.getElementById('author-id');
+        const authorUserIdField = document.getElementById('author-user-id');
+        const newAuthorFields = document.getElementById('new-author-fields');
+        const selectedAuthorDisplay = document.getElementById('selected-author-display');
+        const selectedAuthorInfo = document.getElementById('selected-author-info');
+        const authorSearchContainer = document.getElementById('author-search-container');
+        const clearAuthorBtn = document.getElementById('clear-author-selection');
+
+        // Debug: Check if elements exist
+        if (!authorSearch) {
+            console.error('authorSearch element not found');
+            return;
+        }
+
+        const toggleAuthorFields = () => {
+            const selected = Array.from(radios).find(radio => radio.checked);
+            if (selected && selected.value === 'no') {
+                authorFields.style.display = 'block';
+            } else {
+                authorFields.style.display = 'none';
+                newAuthorFields.style.display = 'none';
+                authorIdField.value = '';
+                hideSelectedAuthor();
+            }
+        };
+
+        const showSelectedAuthor = (authorData) => {
+            const details = [];
+            if (authorData.email) details.push(`<i class="fas fa-envelope"></i> ${authorData.email}`);
+            if (authorData.username) details.push(`<i class="fas fa-user"></i> ${authorData.username}`);
+            if (authorData.affiliation) details.push(`<i class="fas fa-building"></i> ${authorData.affiliation}`);
+            
+            const displayName = authorData.full_name || `${authorData.name || ''} ${authorData.surname || ''}`.trim();
+            
+            selectedAuthorInfo.innerHTML = `
+                <div><strong>${displayName}</strong></div>
+                <div class="text-muted" style="font-size: 0.85rem;">${details.join(' • ')}</div>
+            `;
+            selectedAuthorDisplay.style.display = 'block';
+            authorSearchContainer.style.display = 'none';
+            newAuthorFields.style.display = 'none';
+        };
+
+        const hideSelectedAuthor = () => {
+            selectedAuthorDisplay.style.display = 'none';
+            authorSearchContainer.style.display = 'block';
+            authorSearch.value = '';
+            authorIdField.value = '';
+            authorUserIdField.value = '';
+        };
+
+        clearAuthorBtn.addEventListener('click', () => {
+            hideSelectedAuthor();
+            authorSearch.focus();
+        });
+
+        radios.forEach(radio => {
+            radio.addEventListener('change', toggleAuthorFields);
+        });
+        toggleAuthorFields();
+
+        let searchTimeout;
+        
+        authorSearch.addEventListener('input', function () {
+            const query = this.value.trim();
+            
+            // Clear previous timeout
+            if (searchTimeout) {
+                clearTimeout(searchTimeout);
+            }
+            
+            if (query.length < 3) {
+                authorSuggestions.style.display = 'none';
+                authorSuggestions.innerHTML = '';
+                newAuthorFields.style.display = 'none';
+                authorIdField.value = '';
+                authorUserIdField.value = '';
+                return;
+            }
+
+            // Debounce search
+            searchTimeout = setTimeout(() => {
+                // Show loading indicator
+                authorSuggestions.style.display = 'block';
+                authorSuggestions.style.position = 'absolute';
+                authorSuggestions.style.top = '100%';
+                authorSuggestions.style.left = '0';
+                authorSuggestions.style.width = '100%';
+                authorSuggestions.innerHTML = '<div class="dropdown-item"><small class="text-muted"><i class="fas fa-spinner fa-spin"></i> Ricerca in corso...</small></div>';
+                
+                fetch(`/ajax/search-authors/?q=${encodeURIComponent(query)}`)
+                    .then(res => res.json())
+                    .then(results => {
+                        authorSuggestions.innerHTML = '';
+                        if (results.length === 0) {
+                            authorSuggestions.style.display = 'none';
+                            newAuthorFields.style.display = 'block';
+                            authorIdField.value = '';
+                            authorUserIdField.value = '';
+                            return;
+                        }
+                        newAuthorFields.style.display = 'none';
+                        authorSuggestions.style.display = 'block';
+                        results.forEach(a => {
+                            const item = document.createElement('a');
+                            item.className = 'dropdown-item';
+                            item.href = '#';
+                            item.style.cursor = 'pointer';
+                            
+                            // Create display text with match type indicator
+                            let matchBadge = '';
+                            if (a.match_type === 'surname') {
+                                matchBadge = '<span class="badge bg-primary ms-2">Cognome</span>';
+                            } else if (a.match_type === 'username') {
+                                matchBadge = '<span class="badge bg-info ms-2">Username</span>';
+                            } else if (a.match_type === 'email') {
+                                matchBadge = '<span class="badge bg-secondary ms-2">Email</span>';
+                            }
+                            
+                            const displayName = `${a.name || ''} ${a.surname || ''}`.trim() || a.username || 'Nome non disponibile';
+                            const displayEmail = a.email ? `(${a.email})` : '';
+                            const typeLabel = a.type === 'user' ? '<small class="text-muted">[Utente]</small>' : '<small class="text-muted">[Autore]</small>';
+                            
+                            item.innerHTML = `<strong>${displayName}</strong> ${displayEmail} ${typeLabel} ${matchBadge}`;
+                            
+                            item.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                
+                                // Store IDs
+                                if (a.type === 'user') {
+                                    authorUserIdField.value = a.user_id;
+                                    authorIdField.value = '';
+                                } else {
+                                    authorIdField.value = a.id;
+                                    authorUserIdField.value = '';
+                                }
+                                
+                                // Show selected author
+                                showSelectedAuthor({
+                                    full_name: displayName,
+                                    name: a.name,
+                                    surname: a.surname,
+                                    email: a.email,
+                                    username: a.username,
+                                    affiliation: a.affiliation
+                                });
+                                
+                                authorSuggestions.style.display = 'none';
+                                authorSuggestions.innerHTML = '';
+                                newAuthorFields.style.display = 'none';
+                            });
+                            
+                            authorSuggestions.appendChild(item);
+                        });
+                    })
+                    .catch(err => {
+                        console.error('Error searching authors:', err);
+                        authorSuggestions.style.display = 'none';
+                        authorSuggestions.innerHTML = '';
+                    });
+            }, 200); // 200ms debounce for faster response
+        });
+        
+        // Hide dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!authorSearch.contains(e.target) && !authorSuggestions.contains(e.target)) {
+                authorSuggestions.style.display = 'none';
+            }
+        });
+        
+        // Prevent dropdown from closing when clicking inside
+        authorSuggestions.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        // Monitor new author fields and show preview when filled
+        const authorNameInput = document.getElementById('author-name-input');
+        const authorSurnameInput = document.getElementById('author-surname-input');
+        const authorEmailInput = document.getElementById('author-email-input');
+        const authorAffiliationInput = document.getElementById('author-affiliation-input');
+        const authorOrcidInput = document.getElementById('author-orcid-input');
+
+        const previewNewAuthor = () => {
+            const name = authorNameInput?.value.trim();
+            const surname = authorSurnameInput?.value.trim();
+            const email = authorEmailInput?.value.trim();
+            const affiliation = authorAffiliationInput?.value.trim();
+            const orcid = authorOrcidInput?.value.trim();
+
+            // Show preview only if at least name, surname and email are filled
+            if (name && surname && email) {
+                const newAuthorData = {
+                    full_name: `${name} ${surname}`,
+                    email: email,
+                    username: email.split('@')[0],
+                    affiliation: affiliation,
+                    orcid: orcid,
+                    is_new: true
+                };
+                
+                // Optional: Show a preview badge in the new author section
+                const existingPreview = document.getElementById('new-author-preview');
+                if (existingPreview) {
+                    existingPreview.remove();
+                }
+                
+                const previewDiv = document.createElement('div');
+                previewDiv.id = 'new-author-preview';
+                previewDiv.className = 'alert alert-success mt-3';
+                previewDiv.innerHTML = `
+                    <h6><i class="fas fa-check-circle"></i> Nuovo autore da creare:</h6>
+                    <p class="mb-1"><strong>${newAuthorData.full_name}</strong></p>
+                    <p class="mb-1"><i class="fas fa-envelope"></i> ${newAuthorData.email}</p>
+                    ${affiliation ? `<p class="mb-1"><i class="fas fa-building"></i> ${affiliation}</p>` : ''}
+                    ${orcid ? `<p class="mb-0"><i class="fas fa-id-card"></i> ORCID: ${orcid}</p>` : ''}
+                    <small class="text-muted d-block mt-2"><i class="fas fa-info-circle"></i> L'utente riceverà un'email con le credenziali di accesso</small>
+                `;
+                newAuthorFields.appendChild(previewDiv);
+            }
+        };
+
+        // Add event listeners to new author fields
+        if (authorNameInput) {
+            [authorNameInput, authorSurnameInput, authorEmailInput, authorAffiliationInput, authorOrcidInput].forEach(input => {
+                if (input) {
+                    input.addEventListener('blur', previewNewAuthor);
+                }
+            });
+        }
+
+        // === COAUTHORS ===
+        let coauthorCount = 0;
+        document.getElementById('add-coauthor').addEventListener('click', () => {
+            const index = coauthorCount++;
+            const block = document.createElement('div');
+            block.className = 'coauthor-block mb-3';
+            block.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="form-label mb-0"><strong>Coautore ${index + 1}</strong></label>
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-coauthor" onclick="this.parentElement.parentElement.remove()">
+                        <i class="fas fa-times"></i> Rimuovi
+                    </button>
+                </div>
+                
+                <!-- Selected Coauthor Display -->
+                <div class="selected-coauthor-display alert alert-success" style="display:none;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="selected-coauthor-info" style="font-size: 0.9rem;">
+                            <!-- Coauthor info will be populated here -->
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary clear-coauthor-selection">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="coauthor-search-container">
+                    <div class="position-relative">
+                        <input type="text" class="form-control coauthor-search mb-2" name="coauthor_search_${index}" placeholder="Cerca co-autore per cognome, username o email..." autocomplete="off">
+                        <input type="hidden" name="coauthor_id_${index}" class="coauthor-id">
+                        <input type="hidden" name="coauthor_user_id_${index}" class="coauthor-user-id">
+                        <div class="coauthor-suggestions dropdown-menu w-100 mt-1" style="display:none; position:absolute; z-index:1000; max-height:300px; overflow-y:auto;"></div>
+                    </div>
+                </div>
+                
+                <div class="new-coauthor-fields mt-3" style="display:none;">
+                    <div class="alert alert-info mb-3">
+                        <i class="fas fa-info-circle"></i> <strong>Nuovo co-autore</strong><br>
+                        Verrà creato un nuovo utente con password generata automaticamente. L'utente riceverà un'email con le credenziali.
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <input type="text" name="coauthor_name_${index}" class="form-control mb-2" placeholder="Nome *">
+                        </div>
+                        <div class="col-md-6">
+                            <input type="text" name="coauthor_surname_${index}" class="form-control mb-2" placeholder="Cognome *">
+                        </div>
+                        <div class="col-md-12">
+                            <input type="email" name="coauthor_email_${index}" class="form-control mb-2" placeholder="Email di contatto *">
+                        </div>
+                        <div class="col-md-6">
+                            <input type="text" name="coauthor_affiliation_${index}" class="form-control mb-2" placeholder="Affiliazione (opzionale)">
+                        </div>
+                        <div class="col-md-6">
+                            <input type="text" name="coauthor_orcid_${index}" class="form-control mb-2" placeholder="ORCID (opzionale)">
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('coauthors-container').appendChild(block);
+
+            const searchInput = block.querySelector('.coauthor-search');
+            const searchContainer = block.querySelector('.coauthor-search-container');
+            const suggestionsBox = block.querySelector('.coauthor-suggestions');
+            const newFields = block.querySelector('.new-coauthor-fields');
+            const hiddenIdField = block.querySelector('.coauthor-id');
+            const hiddenUserIdField = block.querySelector('.coauthor-user-id');
+            const selectedDisplay = block.querySelector('.selected-coauthor-display');
+            const selectedInfo = block.querySelector('.selected-coauthor-info');
+            const clearBtn = block.querySelector('.clear-coauthor-selection');
+
+            const showSelectedCoauthor = (authorData) => {
+                const details = [];
+                if (authorData.email) details.push(`<i class="fas fa-envelope"></i> ${authorData.email}`);
+                if (authorData.username) details.push(`<i class="fas fa-user"></i> ${authorData.username}`);
+                if (authorData.affiliation) details.push(`<i class="fas fa-building"></i> ${authorData.affiliation}`);
+                
+                const displayName = authorData.full_name || `${authorData.name || ''} ${authorData.surname || ''}`.trim();
+                
+                selectedInfo.innerHTML = `
+                    <div><strong>${displayName}</strong></div>
+                    <div class="text-muted" style="font-size: 0.85rem;">${details.join(' • ')}</div>
+                `;
+                selectedDisplay.style.display = 'block';
+                searchContainer.style.display = 'none';
+                newFields.style.display = 'none';
+            };
+
+            const hideSelectedCoauthor = () => {
+                selectedDisplay.style.display = 'none';
+                searchContainer.style.display = 'block';
+                searchInput.value = '';
+                hiddenIdField.value = '';
+                hiddenUserIdField.value = '';
+            };
+
+            clearBtn.addEventListener('click', () => {
+                hideSelectedCoauthor();
+                searchInput.focus();
+            });
+
+            let coauthorSearchTimeout;
+            searchInput.addEventListener('input', function () {
+                const query = this.value.trim();
+                
+                // Clear previous timeout
+                if (coauthorSearchTimeout) {
+                    clearTimeout(coauthorSearchTimeout);
+                }
+                
+                if (query.length < 3) {
+                    suggestionsBox.style.display = 'none';
+                    suggestionsBox.innerHTML = '';
+                    newFields.style.display = 'none';
+                    hiddenIdField.value = '';
+                    hiddenUserIdField.value = '';
+                    return;
+                }
+                
+                // Debounce search
+                coauthorSearchTimeout = setTimeout(() => {
+                    // Show loading indicator
+                    suggestionsBox.style.display = 'block';
+                    suggestionsBox.style.position = 'absolute';
+                    suggestionsBox.style.top = '100%';
+                    suggestionsBox.style.left = '0';
+                    suggestionsBox.style.width = '100%';
+                    suggestionsBox.innerHTML = '<div class="dropdown-item"><small class="text-muted"><i class="fas fa-spinner fa-spin"></i> Ricerca in corso...</small></div>';
+                    
+                    fetch(`/ajax/search-authors/?q=${encodeURIComponent(query)}`)
+                        .then(res => res.json())
+                        .then(results => {
+                            suggestionsBox.innerHTML = '';
+                            if (results.length === 0) {
+                                suggestionsBox.style.display = 'none';
+                                newFields.style.display = 'block';
+                                hiddenIdField.value = '';
+                                hiddenUserIdField.value = '';
+                                return;
+                            }
+                            newFields.style.display = 'none';
+                            suggestionsBox.style.display = 'block';
+                            results.forEach(a => {
+                                const item = document.createElement('a');
+                                item.className = 'dropdown-item';
+                                item.href = '#';
+                                item.style.cursor = 'pointer';
+                                
+                                // Create display text with match type indicator
+                                let matchBadge = '';
+                                if (a.match_type === 'surname') {
+                                    matchBadge = '<span class="badge bg-primary ms-2">Cognome</span>';
+                                } else if (a.match_type === 'username') {
+                                    matchBadge = '<span class="badge bg-info ms-2">Username</span>';
+                                } else if (a.match_type === 'email') {
+                                    matchBadge = '<span class="badge bg-secondary ms-2">Email</span>';
+                                }
+                                
+                                const displayName = `${a.name || ''} ${a.surname || ''}`.trim() || a.username || 'Nome non disponibile';
+                                const displayEmail = a.email ? `(${a.email})` : '';
+                                const typeLabel = a.type === 'user' ? '<small class="text-muted">[Utente]</small>' : '<small class="text-muted">[Autore]</small>';
+                                
+                                item.innerHTML = `<strong>${displayName}</strong> ${displayEmail} ${typeLabel} ${matchBadge}`;
+                                
+                                item.addEventListener('click', (e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    
+                                    // Store IDs
+                                    if (a.type === 'user') {
+                                        hiddenUserIdField.value = a.user_id;
+                                        hiddenIdField.value = '';
+                                    } else {
+                                        hiddenIdField.value = a.id;
+                                        hiddenUserIdField.value = '';
+                                    }
+                                    
+                                    // Show selected coauthor
+                                    showSelectedCoauthor({
+                                        full_name: displayName,
+                                        name: a.name,
+                                        surname: a.surname,
+                                        email: a.email,
+                                        username: a.username,
+                                        affiliation: a.affiliation
+                                    });
+                                    
+                                    suggestionsBox.style.display = 'none';
+                                    suggestionsBox.innerHTML = '';
+                                    newFields.style.display = 'none';
+                                });
+                                
+                                suggestionsBox.appendChild(item);
+                            });
+                        })
+                        .catch(err => {
+                            console.error('Error searching authors:', err);
+                            suggestionsBox.style.display = 'none';
+                            suggestionsBox.innerHTML = '';
+                        });
+                }, 200); // 200ms debounce for faster response
+            });
+            
+            // Hide dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
+                    suggestionsBox.style.display = 'none';
+                }
+            });
+            
+            // Prevent dropdown from closing when clicking inside
+            suggestionsBox.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+        });
+
+        // Modal mappa disegno
+        const mapModal = document.getElementById('drawMapModal');
+        let mapInitialized = false;
+
+        mapModal.addEventListener('shown.bs.modal', () => {
+            if (!mapInitialized) {
+                const map = L.map('map').setView([43.7696, 11.2558], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(map);
+                map.invalidateSize();
+
+                const drawnItems = new L.FeatureGroup();
+                map.addLayer(drawnItems);
+
+                const drawControl = new L.Control.Draw({
+                    draw: {
+                        polygon: true,
+                        polyline: false,
+                        rectangle: true,
+                        circle: false,
+                        marker: false,
+                        circlemarker: false
+                    },
+                    edit: {featureGroup: drawnItems}
+                });
+                map.addControl(drawControl);
+
+                map.on(L.Draw.Event.CREATED, function (e) {
+                    const layer = e.layer;
+                    drawnItems.clearLayers();
+                    drawnItems.addLayer(layer);
+
+                    const geojson = layer.toGeoJSON();
+                    const coordinates = geojson.geometry.coordinates[0];
+                    const tupleString = coordinates.map(coord => `(${coord[0].toFixed(6)},${coord[1].toFixed(6)})`).join(',');
+                    const formatted = `(${tupleString})`;
+
+                    const geometryInput = document.querySelector('[name="geometry"]');
+                    if (geometryInput) geometryInput.value = formatted;
+                });
+
+                mapInitialized = true;
+            }
+        });
+
+        // Shapefile Upload AJAX + preview sulla mappa
+        const shapefileInput = document.getElementById('shapefileInput');
+        const previewButton = document.getElementById('acceptShapefileArea');
+        const geometryField = document.querySelector('[name="geometry"]');
+        let shpMap;
+
+        document.getElementById('uploadShapefileModal').addEventListener('shown.bs.modal', () => {
+            if (!shpMap) {
+                shpMap = L.map('shapefileMap').setView([43.7696, 11.2558], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap'
+                }).addTo(shpMap);
+                shpMap.invalidateSize();
+            }
+        });
+
+        previewButton.addEventListener('click', () => {
+            const file = shapefileInput.files[0];
+            if (!file) return alert('Carica un file .zip');
+
+            const formData = new FormData();
+            formData.append('shapefile', file);
+
+            fetch('/api/preview-shapefile/', {
+                method: 'POST',
+                body: formData
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) return alert(data.error);
+
+                    if (geometryField) geometryField.value = data.geometry;
+
+                    const coords = data.geometry.match(/\((-?\d+\.\d+),(-?\d+\.\d+)\)/g)
+                        .map(c => c.replace(/[()]/g, '').split(',').map(Number));
+
+                    const polygon = L.polygon(coords.map(c => [c[1], c[0]])).addTo(shpMap);
+                    shpMap.fitBounds(polygon.getBounds());
+
+                    const modalEl = document.getElementById('uploadShapefileModal');
+                    const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                    modal.hide();
+                })
+                .catch(err => alert('Errore: ' + err));
+        });
+    });
+</script>
+{% endblock content %}

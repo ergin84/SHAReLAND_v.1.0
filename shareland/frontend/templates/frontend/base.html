@@ -1,0 +1,218 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="{{ seo_description|default:default_seo_description }}">
+    <meta name="keywords" content="{{ seo_keywords|default:'archaeology, archaeological research, archaeological sites, archaeological evidence, research database, open landscapes' }}">
+    <meta name="author" content="SHAReLAND">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="{{ seo_url|default:request.build_absolute_uri }}">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="{{ og_type|default:'website' }}">
+    <meta property="og:url" content="{{ seo_url|default:request.build_absolute_uri }}">
+    <meta property="og:title" content="{{ seo_title|default:default_seo_title }}">
+    <meta property="og:description" content="{{ seo_description|default:default_seo_description }}">
+    <meta property="og:image" content="{{ seo_image|default:request.scheme }}://{{ request.get_host }}{% static 'frontend/logo-social.png' %}">
+    <meta property="og:site_name" content="SHAReLAND">
+    <meta property="og:locale" content="en_US">
+    {% if seo_article_published_time %}
+    <meta property="article:published_time" content="{{ seo_article_published_time|date:'c' }}">
+    {% endif %}
+    {% if seo_article_modified_time %}
+    <meta property="article:modified_time" content="{{ seo_article_modified_time|date:'c' }}">
+    {% endif %}
+    {% if seo_article_author %}
+    <meta property="article:author" content="{{ seo_article_author }}">
+    {% endif %}
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="{{ seo_url|default:request.build_absolute_uri }}">
+    <meta name="twitter:title" content="{{ seo_title|default:default_seo_title }}">
+    <meta name="twitter:description" content="{{ seo_description|default:default_seo_description }}">
+    <meta name="twitter:image" content="{{ seo_image|default:request.scheme }}://{{ request.get_host }}{% static 'frontend/logo-social.png' %}">
+    
+    <!-- Schema.org JSON-LD -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "SHAReLAND",
+      "description": "Archaeological Research Database",
+      "url": "{{ request.scheme }}://{{ request.get_host }}"
+    }
+    </script>
+    {% block structured_data %}{% endblock %}
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Leaflet JS -->
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Leaflet Draw CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+
+    <!-- Leaflet Draw JS -->
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Bootstrap JS (bundle includes Popper) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.1/css/all.css" >
+    <link rel="stylesheet" href="{% static 'frontend/main.css' %}">
+    <link rel="stylesheet" href="{% static 'frontend/navbar.css' %}">
+    
+    <!-- Page Title -->
+    {% if seo_title %}
+        <title>{{ seo_title }} | SHAReLAND</title>
+    {% elif title %}
+        <title>SHAReLAND - {{ title }}</title>
+    {% else %}
+        <title>SHAReLAND - Archaeological Research Database</title>
+    {% endif %}
+
+</head>
+  <body>
+    <!-- Top Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark shareland-navbar sticky-top">
+      <div class="container-fluid">
+        <!-- Logo & Brand -->
+        <a class="navbar-brand shareland-brand" href="{% url 'home' %}">
+          <img src="{% static 'frontend/logo.svg' %}" alt="SHAReLAND Logo" class="navbar-logo">
+          <span class="brand-text">SHAReLand</span>
+        </a>
+
+        <!-- Mobile Toggle -->
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent" 
+                aria-controls="navbarContent" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <!-- Navigation Content -->
+        <div class="collapse navbar-collapse" id="navbarContent">
+          <!-- Main Menu (Left) -->
+          <ul class="navbar-nav me-auto">
+            <li class="nav-item">
+              <a class="nav-link active" href="{% url 'home' %}">
+                <i class="fas fa-home"></i> Home
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'research-catalog' %}">
+                <i class="fas fa-sitemap"></i> Research Catalog
+              </a>
+            </li>
+          </ul>
+
+          <!-- User Menu (Right) -->
+          <ul class="navbar-nav navbar-right-menu">
+            {% if user.is_authenticated %}
+              <!-- Research Dropdown -->
+              <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="researchDropdown" role="button" 
+                   data-bs-toggle="dropdown" aria-expanded="false">
+                  <i class="fas fa-flask"></i> Research
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="researchDropdown">
+                  <li><a class="dropdown-item" href="{% url 'user-researches' user %}">
+                    <i class="fas fa-list"></i> My Research
+                  </a></li>
+                  <li><a class="dropdown-item" href="{% url 'create-research' %}">
+                    <i class="fas fa-plus-circle"></i> New Research
+                  </a></li>
+                </ul>
+              </li>
+
+              <!-- Admin Dropdown (if staff) -->
+              {% if user.is_staff %}
+              <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" 
+                   data-bs-toggle="dropdown" aria-expanded="false">
+                  <i class="fas fa-cog"></i> Admin
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="adminDropdown">
+                  <li><a class="dropdown-item" href="{% url 'database_browser' %}">
+                    <i class="fas fa-database"></i> Database Browser
+                  </a></li>
+                  <li><a class="dropdown-item" href="{% url 'audit_log_list' %}">
+                    <i class="fas fa-shield-alt"></i> Audit Logs
+                  </a></li>
+                </ul>
+              </li>
+              {% endif %}
+
+              <!-- User Dropdown -->
+              <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle user-menu" href="#" id="userDropdown" role="button" 
+                   data-bs-toggle="dropdown" aria-expanded="false">
+                  <i class="fas fa-user-circle"></i> {{ user.username }}
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                  <li><a class="dropdown-item" href="{% url 'profile' %}">
+                    <i class="fas fa-user"></i> Profile
+                  </a></li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li>
+                    <form action="{% url 'logout' %}" method="post" style="display: contents;">
+                      {% csrf_token %}
+                      <button type="submit" class="dropdown-item">
+                        <i class="fas fa-sign-out-alt"></i> Log Out
+                      </button>
+                    </form>
+                  </li>
+                </ul>
+              </li>
+
+            {% else %}
+              <!-- Not Authenticated -->
+              <li class="nav-item">
+                <a class="nav-link btn-nav-login" href="{% url 'login' %}">
+                  <i class="fas fa-sign-in-alt"></i> Log In
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link btn-nav-signup" href="{% url 'register' %}">
+                  <i class="fas fa-user-plus"></i> Sign Up
+                </a>
+              </li>
+            {% endif %}
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Messages -->
+    <div class="container my-bg">
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+
+      <!-- Main Content -->
+      {% block content %}
+      {% endblock %}
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+    <script src="{% static 'frontend/main.js' %}"></script>
+  </body>
+</html>

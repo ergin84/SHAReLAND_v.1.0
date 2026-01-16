@@ -1,0 +1,264 @@
+{% extends "frontend/base.html" %}
+{% load static %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "ScholarlyArticle",
+  "headline": "{{ research.title|escapejs }}",
+  "datePublished": "{{ research.created_date|date:'c' }}",
+  {% if research.abstract %}
+  "description": "{{ research.abstract|truncatewords:50|escapejs }}",
+  {% endif %}
+  {% if research.keywords %}
+  "keywords": "{{ research.keywords|escapejs }}",
+  {% endif %}
+  {% if authors %}
+  "author": [
+    {% for author in authors %}
+    {
+      "@type": "Person",
+      "name": "{{ author.first_name|escapejs }} {{ author.last_name|escapejs }}"
+      {% if author.profile.affiliation %},"affiliation": "{{ author.profile.affiliation|escapejs }}"{% endif %}
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+  ],
+  {% endif %}
+  "inLanguage": "en",
+  "publisher": {
+    "@type": "Organization",
+    "name": "SHAReLAND"
+  }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'frontend/public_research.css' %}">
+
+<div class="container mt-4">
+    <div class="public-research-container">
+        <!-- Research Header -->
+        <div class="research-card mb-4">
+            <div class="research-card-header">
+                <div class="d-flex justify-content-between align-items-center flex-wrap">
+                    <h2 class="mb-0">
+                        <i class="fas fa-book-open"></i> {{ research.title|default:"Untitled Research" }}
+                    </h2>
+                    {% if user.is_authenticated %}
+                        {% if user.is_staff or user == research.submitted_by %}
+                            <div class="mt-2 mt-md-0">
+                                <a href="{% url 'research-update' research.pk %}" class="btn btn-warning-modern btn-modern btn-sm">
+                                    <i class="fas fa-edit"></i> Update
+                                </a>
+                                <a href="{% url 'research-delete' research.pk %}" class="btn btn-danger-modern btn-modern btn-sm">
+                                    <i class="fas fa-trash"></i> Delete
+                                </a>
+                            </div>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            <div class="research-card-body">
+                <div class="detail-row">
+                    <div class="detail-item">
+                        <strong><i class="fas fa-calendar-alt"></i> Year</strong>
+                        {{ research.year|default:"N/A" }}
+                    </div>
+                    {% if research.type %}
+                        <div class="detail-item">
+                            <strong><i class="fas fa-tag"></i> Type</strong>
+                            <span class="badge-modern">{{ research.type }}</span>
+                        </div>
+                    {% endif %}
+                    {% if research.submitted_by %}
+                        <div class="detail-item">
+                            <strong><i class="fas fa-user"></i> Submitted by</strong>
+                            {{ research.submitted_by.profile.get_display_name }}
+                        </div>
+                    {% endif %}
+                    {% if research.keywords %}
+                        <div class="detail-item" style="flex: 1 1 100%;">
+                            <strong><i class="fas fa-tags"></i> Keywords</strong>
+                            {{ research.keywords }}
+                        </div>
+                    {% endif %}
+                </div>
+            
+                <!-- Abstract and Map Section -->
+                {% if research.abstract or map_html %}
+                    <div class="row mt-4">
+                        {% if research.abstract %}
+                            <div class="{% if map_html %}col-md-6{% else %}col-12{% endif %} mb-3">
+                                <div class="abstract-section">
+                                    <h5 class="mb-3"><i class="fas fa-file-alt"></i> Abstract</h5>
+                                    <p class="text-justify mb-0">{{ research.abstract }}</p>
+                                </div>
+                            </div>
+                        {% endif %}
+                        
+                        {% if map_html %}
+                            <div class="{% if research.abstract %}col-md-6{% else %}col-12{% endif %} mb-3">
+                                <h5 class="mb-3"><i class="fas fa-map-marked-alt"></i> Research Area Map</h5>
+                                <div class="map-container" style="width: 100%; height: {% if research.abstract %}400px{% else %}500px{% endif %};">
+                                    {{ map_html|safe }}
+                                </div>
+                            </div>
+                        {% elif research.geometry %}
+                            <div class="{% if research.abstract %}col-md-6{% else %}col-12{% endif %} mb-3">
+                                <h5 class="mb-3"><i class="fas fa-map"></i> Geometry</h5>
+                                <p><small class="text-muted">{{ research.geometry|truncatewords:20 }}</small></p>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+                
+                {% if authors %}
+                    <div class="mt-4">
+                        <h5 class="mb-3"><i class="fas fa-users"></i> Authors</h5>
+                        <ul class="authors-list">
+                            {% for author in authors %}
+                                <li>
+                                    <i class="fas fa-user-circle"></i>
+                                    <strong>{{ author.first_name }} {{ author.last_name }}</strong>
+                                    {% if author.profile.affiliation %} - <em>{{ author.profile.affiliation }}</em>{% endif %}
+                                    {% if author.email %} <small class="text-muted">({{ author.email }})</small>{% endif %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+        </div>
+    </div>
+
+        <!-- Sites Section -->
+        {% if sites_with_details %}
+            <div class="research-card mb-4">
+                <div class="section-header">
+                    <i class="fas fa-map-marker-alt"></i>
+                    Related Sites <span class="badge badge-light ml-2">{{ sites_with_details|length }}</span>
+                </div>
+                <div class="research-card-body">
+                    {% for site_data in sites_with_details %}
+                        <div class="site-card">
+                            <div class="site-card-header">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap">
+                                    <h4 class="mb-0">
+                                        <i class="fas fa-landmark"></i> {{ site_data.site.site_name|default:"Site #"|add:site_data.site.id }}
+                                    </h4>
+                                    <div class="mt-2 mt-md-0">
+                                        <a href="{% url 'site_detail' site_data.site.pk %}" class="btn btn-primary-modern btn-modern btn-sm">
+                                            <i class="fas fa-eye"></i> Detail
+                                        </a>
+                                        {% if user.is_authenticated %}
+                                            {% if user.is_staff or user == research_owner %}
+                                                <a href="{% url 'site_update' site_data.site.pk %}" class="btn btn-warning-modern btn-modern btn-sm">
+                                                    <i class="fas fa-edit"></i> Update
+                                                </a>
+                                                <a href="{% url 'site_delete' site_data.site.pk %}" class="btn btn-danger-modern btn-modern btn-sm">
+                                                    <i class="fas fa-trash"></i> Delete
+                                                </a>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="site-card-body">
+                                <div class="detail-row">
+                                    {% if site_data.site.locality_name %}
+                                        <div class="detail-item">
+                                            <strong><i class="fas fa-map-pin"></i> Locality</strong>
+                                            {{ site_data.site.locality_name }}
+                                        </div>
+                                    {% endif %}
+                                    {% if site_data.site.lat and site_data.site.lon %}
+                                        <div class="detail-item">
+                                            <strong><i class="fas fa-globe"></i> Coordinates</strong>
+                                            {{ site_data.site.lat }}, {{ site_data.site.lon }}
+                                        </div>
+                                    {% endif %}
+                                    {% if site_data.site.id_country %}
+                                        <div class="detail-item">
+                                            <strong><i class="fas fa-flag"></i> Country</strong>
+                                            {{ site_data.site.id_country }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+        <!-- Archaeological Evidence Section -->
+        {% if evidences_with_details %}
+            <div class="research-card mb-4">
+                <div class="section-header section-header-warning">
+                    <i class="fas fa-shovel"></i>
+                    Archaeological Evidence <span class="badge badge-light ml-2">{{ evidences_with_details|length }}</span>
+                </div>
+                <div class="research-card-body">
+                    {% for evidence_data in evidences_with_details %}
+                        <div class="evidence-card">
+                            <div class="evidence-card-header">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-archway"></i> {{ evidence_data.evidence.evidence_name|default:"Evidence #"|add:evidence_data.evidence.id }}
+                                    </h5>
+                                    <div class="mt-2 mt-md-0">
+                                        <a href="{% url 'evidence_detail' evidence_data.evidence.pk %}" class="btn btn-primary-modern btn-modern btn-sm">
+                                            <i class="fas fa-eye"></i> Detail
+                                        </a>
+                                        {% if user.is_authenticated %}
+                                            {% if user.is_staff or user == research_owner %}
+                                                <a href="{% url 'evidence_update' evidence_data.evidence.pk %}" class="btn btn-warning-modern btn-modern btn-sm">
+                                                    <i class="fas fa-edit"></i> Update
+                                                </a>
+                                                <a href="{% url 'evidence_delete' evidence_data.evidence.pk %}" class="btn btn-danger-modern btn-modern btn-sm">
+                                                    <i class="fas fa-trash"></i> Delete
+                                                </a>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="evidence-card-body">
+                                <div class="detail-row">
+                                    {% if evidence_data.evidence.id_archaeological_evidence_typology %}
+                                        <div class="detail-item">
+                                            <strong><i class="fas fa-layer-group"></i> Typology</strong>
+                                            {{ evidence_data.evidence.id_archaeological_evidence_typology }}
+                                        </div>
+                                    {% endif %}
+                                    {% if evidence_data.evidence.description %}
+                                        <div class="detail-item" style="flex: 1 1 100%;">
+                                            <strong><i class="fas fa-align-left"></i> Description</strong>
+                                            {{ evidence_data.evidence.description|truncatewords:20 }}
+                                        </div>
+                                    {% endif %}
+                                    {% if evidence_data.evidence.id_country %}
+                                        <div class="detail-item">
+                                            <strong><i class="fas fa-flag"></i> Country</strong>
+                                            {{ evidence_data.evidence.id_country }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+        <!-- Back Button -->
+        <div class="mt-4 text-center">
+            <a href="{% url 'public-research-list' %}" class="btn btn-primary-modern btn-modern">
+                <i class="fas fa-arrow-left"></i> Back to Research List
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+

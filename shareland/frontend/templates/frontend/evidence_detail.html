@@ -1,0 +1,684 @@
+{% extends "frontend/base.html" %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'frontend/public_research.css' %}">
+
+<style>
+  .detail-tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 2px solid #e0e0e0; padding-bottom: 0; }
+  .detail-tab { flex: 1; min-width: 100px; padding: 0.75rem; background: #f8f9fa; border: none; border-radius: 8px 8px 0 0; cursor: pointer; transition: all 0.3s; font-weight: 500; color: #6c757d; font-size: 0.9rem; }
+  .detail-tab:hover { background: #e9ecef; }
+  .detail-tab.active { background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); color: white; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(44, 62, 80, 0.3); }
+  .tab-content { display: none; animation: fadeIn 0.3s; }
+  .tab-content.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+</style>
+
+<div class="container mt-4 mb-4">
+    <div class="research-card mb-4">
+        <div class="research-card-header d-flex justify-content-between align-items-start flex-wrap">
+            <div>
+                <h2 class="mb-1"><i class="fas fa-archway"></i>
+                    {% if evidence.evidence_name %}{{ evidence.evidence_name }}{% else %}Evidence #{{ evidence.id }}{% endif %}
+                </h2>
+                {% if evidence.id_archaeological_evidence_typology %}
+                    <span class="badge-modern">{{ evidence.id_archaeological_evidence_typology }}</span>
+                {% endif %}
+            </div>
+            {% if user.is_authenticated %}
+                <div class="btn-group">
+                    <a href="{% url 'evidence_update' evidence.id %}" class="btn btn-warning-modern btn-modern btn-sm"><i class="fas fa-edit"></i> Edit</a>
+                    <a href="{% url 'evidence_delete' evidence.id %}" class="btn btn-danger-modern btn-modern btn-sm"><i class="fas fa-trash"></i> Delete</a>
+                </div>
+            {% endif %}
+        </div>
+        
+        <!-- Tabs Navigation -->
+        <div class="detail-tabs">
+            <button class="detail-tab active" onclick="showTab(event, 'general')"><i class="fas fa-info-circle"></i> General</button>
+            <button class="detail-tab" onclick="showTab(event, 'desc')"><i class="fas fa-align-left"></i> Description</button>
+            <button class="detail-tab" onclick="showTab(event, 'pos')"><i class="fas fa-map-pin"></i> Positioning</button>
+            <button class="detail-tab" onclick="showTab(event, 'landscape')"><i class="fas fa-mountain"></i> Landscape</button>
+            <button class="detail-tab" onclick="showTab(event, 'research')"><i class="fas fa-flask"></i> Research History</button>
+            <button class="detail-tab" onclick="showTab(event, 'docs')"><i class="fas fa-file-alt"></i> Documentation</button>
+            <button class="detail-tab" onclick="showTab(event, 'notes')"><i class="fas fa-sticky-note"></i> Notes</button>
+        </div>
+
+        <div class="research-card-body">
+            
+            <!-- General Tab -->
+            <div id="general" class="tab-content active">
+                <!-- Location Details Section -->
+                <div class="mb-4">
+                    <h6 class="text-muted mb-2">Location Details</h6>
+                    <div class="detail-row">
+                        {% if evidence.id_country %}
+                            <div class="detail-item">
+                                <strong>Country</strong>
+                                <div class="mt-1">{{ evidence.id_country }}</div>
+                            </div>
+                        {% else %}
+                            <div class="detail-item text-muted">
+                                <strong>Country</strong>
+                                <div class="mt-1">—</div>
+                            </div>
+                        {% endif %}
+                        
+                        {% if evidence.id_region %}
+                            <div class="detail-item">
+                                <strong>Region</strong>
+                                <div class="mt-1">{{ evidence.id_region }}</div>
+                            </div>
+                        {% else %}
+                            <div class="detail-item text-muted">
+                                <strong>Region</strong>
+                                <div class="mt-1">—</div>
+                            </div>
+                        {% endif %}
+                        
+                        {% if evidence.id_province %}
+                            <div class="detail-item">
+                                <strong>Province</strong>
+                                <div class="mt-1">{{ evidence.id_province }}</div>
+                            </div>
+                        {% else %}
+                            <div class="detail-item text-muted">
+                                <strong>Province</strong>
+                                <div class="mt-1">—</div>
+                            </div>
+                        {% endif %}
+                        
+                        {% if evidence.id_municipality %}
+                            <div class="detail-item">
+                                <strong>Municipality</strong>
+                                <div class="mt-1">{{ evidence.id_municipality }}</div>
+                            </div>
+                        {% else %}
+                            <div class="detail-item text-muted">
+                                <strong>Municipality</strong>
+                                <div class="mt-1">—</div>
+                            </div>
+                        {% endif %}
+                        
+                        {% if evidence.locality_name %}
+                            <div class="detail-item">
+                                <strong>Località</strong>
+                                <div class="mt-1">{{ evidence.locality_name }}</div>
+                            </div>
+                        {% else %}
+                            <div class="detail-item text-muted">
+                                <strong>Località</strong>
+                                <div class="mt-1">—</div>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Coordinates and Elevation Section -->
+                <div class="mb-4">
+                    <h6 class="text-muted mb-2">Coordinates</h6>
+                    <div class="detail-row">
+                        {% if evidence.lat %}
+                            <div class="detail-item">
+                                <strong>Lat</strong>
+                                <div class="mt-1">{{ evidence.lat }}</div>
+                            </div>
+                        {% else %}
+                            <div class="detail-item text-muted">
+                                <strong>Lat</strong>
+                                <div class="mt-1">—</div>
+                            </div>
+                        {% endif %}
+                        
+                        {% if evidence.lon %}
+                            <div class="detail-item">
+                                <strong>Lon</strong>
+                                <div class="mt-1">{{ evidence.lon }}</div>
+                            </div>
+                        {% else %}
+                            <div class="detail-item text-muted">
+                                <strong>Lon</strong>
+                                <div class="mt-1">—</div>
+                            </div>
+                        {% endif %}
+                        
+                        {% if evidence.elevation %}
+                            <div class="detail-item">
+                                <strong>Quota</strong>
+                                <div class="mt-1">{{ evidence.elevation }} m</div>
+                            </div>
+                        {% else %}
+                            <div class="detail-item text-muted">
+                                <strong>Quota</strong>
+                                <div class="mt-1">—</div>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Location Map -->
+                {% if evidence.lat and evidence.lon %}
+                <div class="mt-3">
+                    <h6><i class="fas fa-map"></i> Location Map</h6>
+                    <div id="evidence-general-map" data-lat="{{ evidence.lat }}" data-lon="{{ evidence.lon }}" style="height: 300px; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0;"></div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Description Tab -->
+            <div id="desc" class="tab-content">
+                <div class="detail-row">
+                    {% if evidence.id_archaeological_evidence_typology %}
+                        <div class="detail-item"><strong><i class="fas fa-list"></i> Typology</strong> {{ evidence.id_archaeological_evidence_typology }}</div>
+                    {% endif %}
+                    {% if evidence.evidence_name %}
+                        <div class="detail-item"><strong><i class="fas fa-tag"></i> Evidence Name</strong> {{ evidence.evidence_name }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="detail-row mt-2">
+                    {% if evidence.description %}
+                        <div class="detail-item">
+                            <strong><i class="fas fa-align-left"></i> Description</strong>
+                            <div>{{ evidence.description|linebreaksbr }}</div>
+                        </div>
+                    {% else %}
+                        <div class="detail-item text-muted">
+                            <strong><i class="fas fa-align-left"></i> Description</strong>
+                            <div>No description recorded.</div>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="detail-row mt-2">
+                    {% if evidence.id_chronology %}
+                        <div class="detail-item"><strong><i class="fas fa-clock"></i> Chronology</strong> {{ evidence.id_chronology }}</div>
+                    {% endif %}
+                    {% if evidence.chronology_certainty_level %}
+                        <div class="detail-item"><strong><i class="fas fa-check-circle"></i> Chronology Certainty Level</strong> {{ evidence.chronology_certainty_level }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Positioning Tab -->
+            <div id="pos" class="tab-content">
+                <div class="row mb-4">
+                    <!-- Left Column - Positioning Mode -->
+                    <div class="col-md-4 mb-3">
+                        <fieldset class="border rounded p-3" style="background: #f8f9fa; height: 100%;">
+                            <legend class="float-none w-auto px-2 small text-muted"><strong>Modalità di posizionamento</strong></legend>
+                            {% if evidence.id_positioning_mode %}
+                                <div class="detail-item">
+                                    <div class="mt-1">{{ evidence.id_positioning_mode }}</div>
+                                </div>
+                            {% else %}
+                                <div class="detail-item text-muted">
+                                    <div class="mt-1">—</div>
+                                </div>
+                            {% endif %}
+                        </fieldset>
+                    </div>
+                    
+                    <!-- Middle Column - Cartographic Base -->
+                    <div class="col-md-4 mb-3">
+                        <fieldset class="border rounded p-3" style="background: #f8f9fa; height: 100%;">
+                            <legend class="float-none w-auto px-2 small text-muted"><strong>Base cartografica</strong></legend>
+                            {% if evidence.id_base_map %}
+                                <div class="detail-item">
+                                    <div class="mt-1">{{ evidence.id_base_map }}</div>
+                                </div>
+                            {% else %}
+                                <div class="detail-item text-muted">
+                                    <div class="mt-1">—</div>
+                                </div>
+                            {% endif %}
+                        </fieldset>
+                    </div>
+                    
+                    <!-- Right Column - Positioning Quality -->
+                    <div class="col-md-4 mb-3">
+                        <fieldset class="border rounded p-3" style="background: #f8f9fa; height: 100%;">
+                            <legend class="float-none w-auto px-2 small text-muted"><strong>Qualità del posizionamento</strong></legend>
+                            {% if evidence.id_positional_accuracy %}
+                                <div class="detail-item">
+                                    <div class="mt-1">{{ evidence.id_positional_accuracy }}</div>
+                                </div>
+                            {% else %}
+                                <div class="detail-item text-muted">
+                                    <div class="mt-1">—</div>
+                                </div>
+                            {% endif %}
+                        </fieldset>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Landscape Tab -->
+            <div id="landscape" class="tab-content">
+                <div class="detail-row">
+                    {% if evidence.id_physiography %}<div class="detail-item"><strong><i class="fas fa-water"></i> Physiography</strong> {{ evidence.id_physiography }}</div>{% endif %}
+                    {% if evidence.additional_topography %}<div class="detail-item"><strong><i class="fas fa-map-signs"></i> Additional Topography</strong> {{ evidence.additional_topography|linebreaksbr }}</div>{% endif %}
+                </div>
+            </div>
+
+            <!-- Research History Tab -->
+            <div id="research" class="tab-content">
+                <div class="detail-row">
+                    {% if evidence.id_first_discovery_method %}<div class="detail-item"><strong><i class="fas fa-compass"></i> First Discovery Method</strong> {{ evidence.id_first_discovery_method }}</div>{% endif %}
+                </div>
+                {% if evidence.id_investigation %}
+                    <div class="detail-row mt-2">
+                        {% if evidence.id_investigation.project_name %}<div class="detail-item"><strong><i class="fas fa-project-diagram"></i> Project Name</strong> {{ evidence.id_investigation.project_name }}</div>{% endif %}
+                        {% if evidence.id_investigation.id_investigation_type %}<div class="detail-item"><strong><i class="fas fa-search"></i> Investigation Type</strong> {{ evidence.id_investigation.id_investigation_type }}</div>{% endif %}
+                        {% if evidence.id_investigation.period %}<div class="detail-item"><strong><i class="fas fa-calendar"></i> Period</strong> {{ evidence.id_investigation.period }}</div>{% endif %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Documentation Tab -->
+            <div id="docs" class="tab-content">
+                <!-- Bibliographies Section -->
+                {% if arch_ev_bibliographies %}
+                    <div class="mb-4">
+                        <h6 class="text-muted mb-3">Bibliografia ({{ arch_ev_bibliographies|length }})</h6>
+                        {% for biblio in arch_ev_bibliographies %}
+                            <div class="mb-3" style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px;">
+                                <div class="detail-row">
+                                    {% if biblio.title %}
+                                        <div class="detail-item">
+                                            <strong>TITOLO</strong>
+                                            <div class="mt-1">{{ biblio.title }}</div>
+                                        </div>
+                                    {% else %}
+                                        <div class="detail-item text-muted">
+                                            <strong>TITOLO</strong>
+                                            <div class="mt-1">—</div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if biblio.author %}
+                                        <div class="detail-item">
+                                            <strong>AUTORE</strong>
+                                            <div class="mt-1">{{ biblio.author }}</div>
+                                        </div>
+                                    {% else %}
+                                        <div class="detail-item text-muted">
+                                            <strong>AUTORE</strong>
+                                            <div class="mt-1">—</div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if biblio.year %}
+                                        <div class="detail-item">
+                                            <strong>ANNO</strong>
+                                            <div class="mt-1">{{ biblio.year }}</div>
+                                        </div>
+                                    {% else %}
+                                        <div class="detail-item text-muted">
+                                            <strong>ANNO</strong>
+                                            <div class="mt-1">—</div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if biblio.doi %}
+                                        <div class="detail-item">
+                                            <strong>DOI</strong>
+                                            <div class="mt-1">{{ biblio.doi }}</div>
+                                        </div>
+                                    {% else %}
+                                        <div class="detail-item text-muted">
+                                            <strong>DOI</strong>
+                                            <div class="mt-1">—</div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if biblio.tipo %}
+                                        <div class="detail-item">
+                                            <strong>TIPO</strong>
+                                            <div class="mt-1">{{ biblio.tipo }}</div>
+                                        </div>
+                                    {% else %}
+                                        <div class="detail-item text-muted">
+                                            <strong>TIPO</strong>
+                                            <div class="mt-1">—</div>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <!-- Sources Section -->
+                {% if arch_ev_sources %}
+                    <div class="mb-4">
+                        <h6 class="text-muted mb-3">Fonti ({{ arch_ev_sources|length }})</h6>
+                        {% for source in arch_ev_sources %}
+                            <div class="mb-3" style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px;">
+                                <div class="detail-row">
+                                    {% if source.name %}
+                                        <div class="detail-item">
+                                            <strong>NOME</strong>
+                                            <div class="mt-1">{{ source.name }}</div>
+                                        </div>
+                                    {% else %}
+                                        <div class="detail-item text-muted">
+                                            <strong>NOME</strong>
+                                            <div class="mt-1">—</div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if source.id_chronology %}
+                                        <div class="detail-item">
+                                            <strong>CRONOLOGIA</strong>
+                                            <div class="mt-1">{{ source.id_chronology }}</div>
+                                        </div>
+                                    {% else %}
+                                        <div class="detail-item text-muted">
+                                            <strong>CRONOLOGIA</strong>
+                                            <div class="mt-1">—</div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if source.id_sources_typology %}
+                                        <div class="detail-item">
+                                            <strong>TIPO</strong>
+                                            <div class="mt-1">{{ source.id_sources_typology }}</div>
+                                        </div>
+                                    {% else %}
+                                        <div class="detail-item text-muted">
+                                            <strong>TIPO</strong>
+                                            <div class="mt-1">—</div>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <!-- Related Documentation Section -->
+                {% if arch_ev_related_docs %}
+                    <div class="mb-4">
+                        <h6 class="text-muted mb-3">Altra documentazione ({{ arch_ev_related_docs|length }})</h6>
+                        {% for doc in arch_ev_related_docs %}
+                            <div class="mb-3" style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px;">
+                                <div class="detail-row">
+                                    {% if doc.name %}
+                                        <div class="detail-item">
+                                            <strong>NOME</strong>
+                                            <div class="mt-1">{{ doc.name }}</div>
+                                        </div>
+                                    {% else %}
+                                        <div class="detail-item text-muted">
+                                            <strong>NOME</strong>
+                                            <div class="mt-1">—</div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if doc.author %}
+                                        <div class="detail-item">
+                                            <strong>AUTORE</strong>
+                                            <div class="mt-1">{{ doc.author }}</div>
+                                        </div>
+                                    {% else %}
+                                        <div class="detail-item text-muted">
+                                            <strong>AUTORE</strong>
+                                            <div class="mt-1">—</div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if doc.year %}
+                                        <div class="detail-item">
+                                            <strong>ANNO</strong>
+                                            <div class="mt-1">{{ doc.year }}</div>
+                                        </div>
+                                    {% else %}
+                                        <div class="detail-item text-muted">
+                                            <strong>ANNO</strong>
+                                            <div class="mt-1">—</div>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <!-- Images Section -->
+                {% if evidence_images %}
+                    <div class="mb-4">
+                        <h6 class="text-muted mb-3">Immagini ({{ evidence_images|length }})</h6>
+                        {% for image in evidence_images %}
+                            <div class="mb-3" style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px;">
+                                <div class="detail-row">
+                                    {% if image.file_name %}
+                                        <div class="detail-item">
+                                            <strong>File Name</strong>
+                                            <div class="mt-1">{{ image.file_name }}</div>
+                                        </div>
+                                    {% else %}
+                                        <div class="detail-item text-muted">
+                                            <strong>File Name</strong>
+                                            <div class="mt-1">—</div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if image.image_type_obj %}
+                                        <div class="detail-item">
+                                            <strong>Type</strong>
+                                            <div class="mt-1">{{ image.image_type_obj }}</div>
+                                        </div>
+                                    {% else %}
+                                        <div class="detail-item text-muted">
+                                            <strong>Type</strong>
+                                            <div class="mt-1">—</div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if image.image_scale_obj %}
+                                        <div class="detail-item">
+                                            <strong>Scale</strong>
+                                            <div class="mt-1">{{ image.image_scale_obj }}</div>
+                                        </div>
+                                    {% else %}
+                                        <div class="detail-item text-muted">
+                                            <strong>Scale</strong>
+                                            <div class="mt-1">—</div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if image.acquisition_date %}
+                                        <div class="detail-item">
+                                            <strong>Acquisition Date</strong>
+                                            <div class="mt-1">{{ image.acquisition_date }}</div>
+                                        </div>
+                                    {% else %}
+                                        <div class="detail-item text-muted">
+                                            <strong>Acquisition Date</strong>
+                                            <div class="mt-1">—</div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if image.desc_image %}
+                                        <div class="detail-item">
+                                            <strong>Description</strong>
+                                            <div class="mt-1" style="white-space: pre-wrap;">{{ image.desc_image }}</div>
+                                        </div>
+                                    {% else %}
+                                        <div class="detail-item text-muted">
+                                            <strong>Description</strong>
+                                            <div class="mt-1">—</div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if image.format %}
+                                        <div class="detail-item">
+                                            <strong>Format</strong>
+                                            <div class="mt-1">{{ image.format }}</div>
+                                        </div>
+                                    {% else %}
+                                        <div class="detail-item text-muted">
+                                            <strong>Format</strong>
+                                            <div class="mt-1">—</div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if image.projection %}
+                                        <div class="detail-item">
+                                            <strong>Projection</strong>
+                                            <div class="mt-1">{{ image.projection }}</div>
+                                        </div>
+                                    {% else %}
+                                        <div class="detail-item text-muted">
+                                            <strong>Projection</strong>
+                                            <div class="mt-1">—</div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if image.spatial_resolution %}
+                                        <div class="detail-item">
+                                            <strong>Spatial Resolution</strong>
+                                            <div class="mt-1">{{ image.spatial_resolution }}</div>
+                                        </div>
+                                    {% else %}
+                                        <div class="detail-item text-muted">
+                                            <strong>Spatial Resolution</strong>
+                                            <div class="mt-1">—</div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if image.author %}
+                                        <div class="detail-item">
+                                            <strong>Author</strong>
+                                            <div class="mt-1">{{ image.author }}</div>
+                                        </div>
+                                    {% else %}
+                                        <div class="detail-item text-muted">
+                                            <strong>Author</strong>
+                                            <div class="mt-1">—</div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if image.source_url %}
+                                        <div class="detail-item">
+                                            <strong>Source URL</strong>
+                                            <div class="mt-1">
+                                                <a href="{{ image.source_url }}" target="_blank" rel="noopener">{{ image.source_url }}</a>
+                                            </div>
+                                        </div>
+                                    {% else %}
+                                        <div class="detail-item text-muted">
+                                            <strong>Source URL</strong>
+                                            <div class="mt-1">—</div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if image.key_words %}
+                                        <div class="detail-item">
+                                            <strong>Key Words</strong>
+                                            <div class="mt-1">{{ image.key_words }}</div>
+                                        </div>
+                                    {% else %}
+                                        <div class="detail-item text-muted">
+                                            <strong>Key Words</strong>
+                                            <div class="mt-1">—</div>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Image Preview -->
+                                {% if image.source_url %}
+                                    <div class="mt-3">
+                                        <img src="{{ image.source_url }}" alt="{{ image.desc_image|default:'Image' }}" class="img-fluid rounded" style="max-height: 300px; width: auto; object-fit: contain;">
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Notes Tab -->
+            <div id="notes" class="tab-content">
+                <div class="detail-row">
+                    {% if evidence.notes %}
+                        <div class="detail-item">
+                            <strong><i class="fas fa-sticky-note"></i> Notes</strong>
+                            <div class="mt-2">{{ evidence.notes|linebreaksbr }}</div>
+                        </div>
+                    {% else %}
+                        <div class="detail-item text-muted">
+                            <strong><i class="fas fa-sticky-note"></i> Notes</strong>
+                            <div class="mt-2">No notes recorded.</div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleDetails(id) {
+    const content = document.getElementById(id);
+    const icon = document.getElementById(id + '-icon');
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        icon.classList.remove('fa-chevron-down');
+        icon.classList.add('fa-chevron-up');
+    } else {
+        content.style.display = 'none';
+        icon.classList.remove('fa-chevron-up');
+        icon.classList.add('fa-chevron-down');
+    }
+}
+
+function initLeafletMap(divId) {
+    const el = document.getElementById(divId);
+    if (!el) return;
+    if (el._leaflet_map) {
+        setTimeout(() => el._leaflet_map.invalidateSize(true), 50);
+        return;
+    }
+    const lat = parseFloat(el.dataset.lat);
+    const lon = parseFloat(el.dataset.lon);
+    if (isNaN(lat) || isNaN(lon)) return;
+    const map = L.map(divId);
+    el._leaflet_map = map;
+    const marker = L.marker([lat, lon]).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+    map.setView([lat, lon], 13);
+    setTimeout(() => map.invalidateSize(true), 50);
+}
+
+function showTab(evt, tabName) {
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabContents.forEach(tc => tc.classList.remove('active'));
+  
+    const tabButtons = document.querySelectorAll('.detail-tab');
+    tabButtons.forEach(tb => tb.classList.remove('active'));
+  
+    const tab = document.getElementById(tabName);
+    tab.classList.add('active');
+    evt.currentTarget.classList.add('active');
+
+    // Initialize map when General tab becomes visible
+    if (tabName === 'general') {
+        initLeafletMap('evidence-general-map');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize map when General tab is active on page load
+    const generalTab = document.getElementById('general');
+    if (generalTab && generalTab.classList.contains('active')) {
+        initLeafletMap('evidence-general-map');
+    }
+});
+</script>
+{% endblock %}

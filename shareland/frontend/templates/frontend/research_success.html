@@ -1,0 +1,15 @@
+{% extends "frontend/base.html" %}
+{% block content %}
+<div class="content-section pt-3 shadow text-center">
+  <h4 class="mb-4">Ricerca salvata con successo!</h4>
+  <p>Hai completato l'inserimento della ricerca <strong>{{ research.title }}</strong>.</p>
+  <div class="mt-4 d-flex justify-content-center gap-3">
+    <a href="{% url 'site_create' %}?research_id={{ research.id }}" class="btn btn-outline-success">
+      <i class="fas fa-map-marker-alt"></i> Aggiungi un Sito
+    </a>
+    <a href="{% url 'evidence_create' %}?research_id={{ research.id }}" class="btn btn-outline-secondary">
+      <i class="fas fa-university"></i> Aggiungi un'Evidenza
+    </a>
+  </div>
+</div>
+{% endblock %}

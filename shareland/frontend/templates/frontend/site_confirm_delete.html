@@ -1,0 +1,18 @@
+{% extends "frontend/base.html" %}
+{% block content %}
+    <div class="content-section">
+        <form method="POST">
+            {% csrf_token %}
+            <fieldset class="form-group">
+                <h2>Delete Site</h2>
+                <div class="alert alert-danger">
+                    Are you sure you want to delete the site "{{ object.site_name }}"?
+                </div>
+            </fieldset>
+            <div class="form-group">
+                <button class="btn btn-outline-danger" type="submit">Yes, Delete</button>
+                <a class="btn btn-outline-secondary" href="{% url 'site_detail' object.id %}">Cancel</a>
+            </div>
+        </form>
+    </div>
+{% endblock content %}

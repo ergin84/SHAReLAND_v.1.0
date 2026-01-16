@@ -1,0 +1,112 @@
+{% extends "frontend/base.html" %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'frontend/home_redesign.css' %}">
+
+<!-- Hero Section -->
+<section class="hero-section">
+  <div class="hero-overlay"></div>
+  <div class="hero-content">
+    <div class="hero-badge">
+      <!-- Custom SVG: Share arrow + Landmark column -->
+      <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="28" cy="28" r="27" fill="#fff" fill-opacity="0.18" stroke="#2c3e50" stroke-width="2"/>
+        <!-- Landmark base -->
+        <rect x="16" y="38" width="24" height="6" rx="2" fill="#34495e"/>
+        <!-- Landmark column -->
+        <rect x="25" y="22" width="6" height="16" rx="2" fill="#3498db"/>
+        <!-- Landmark roof -->
+        <rect x="18" y="18" width="20" height="4" rx="2" fill="#2c3e50"/>
+        <!-- Share arrow -->
+        <path d="M36 14L44 14M44 14L44 22M44 14L28 30" stroke="#27ae60" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <h1 class="hero-title">SHAReLAND</h1>
+    <p class="hero-subtitle">
+      Share Archaeological Research & Landscape Analysis Network Database
+    </p>
+    <p class="hero-description">
+      A collaborative platform for archaeologists to discover, share, and preserve 
+      digital heritage data. Join a global community dedicated to advancing 
+      archaeological research through data sharing.
+    </p>
+    <div class="hero-actions">
+      {% if not user.is_authenticated %}
+        <a href="{% url 'register' %}" class="hero-btn hero-btn-primary">
+          <i class="fas fa-user-plus"></i>
+          <span>Get Started Free</span>
+        </a>
+        <a href="{% url 'public-research-list' %}" class="hero-btn hero-btn-secondary">
+          <i class="fas fa-book-open"></i>
+          <span>Explore Research</span>
+        </a>
+      {% else %}
+        <a href="{% url 'create-research' %}" class="hero-btn hero-btn-primary">
+          <i class="fas fa-plus-circle"></i>
+          <span>New Research</span>
+        </a>
+        <a href="{% url 'user-researches' user.username %}" class="hero-btn hero-btn-secondary">
+          <i class="fas fa-clipboard-list"></i>
+          <span>My Projects</span>
+        </a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="hero-scroll">
+    <i class="fas fa-chevron-down"></i>
+  </div>
+</section>
+
+<!-- Statistics Section -->
+<section class="stats-section">
+  <div class="stats-container">
+    <div class="stats-header">
+      <h2>Platform at a Glance</h2>
+      <p>Real-time statistics from our growing research community</p>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-research">
+          <i class="fas fa-flask"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-number">{{ total_research|default:0 }}</div>
+          <div class="stat-label">Research Projects</div>
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-sites">
+          <i class="fas fa-map-marked-alt"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-number">{{ total_sites|default:0 }}</div>
+          <div class="stat-label">Archaeological Sites</div>
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-evidence">
+          <i class="fas fa-archive"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-number">{{ total_evidence|default:0 }}</div>
+          <div class="stat-label">Evidence Records</div>
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-users">
+          <i class="fas fa-users"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-number">{{ total_users|default:0 }}</div>
+          <div class="stat-label">Active Researchers</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock content %}

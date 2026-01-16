@@ -1,0 +1,221 @@
+{% extends "frontend/base.html" %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'frontend/list_views.css' %}">
+
+<div class="container mt-4">
+    <div class="list-container">
+        <!-- Header Section -->
+        <div class="list-header">
+            <h1><i class="fas fa-shield-alt"></i> Audit Logs</h1>
+            <p>System activity and user operations log (Admin Only)</p>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+            <div style="background: #f9fafb; padding: 1.5rem; border-radius: 8px; border: 1px solid #e5e7eb; text-align: center;">
+                <div style="font-size: 2rem; font-weight: 600; color: #1f2937;">{{ total_logs }}</div>
+                <div style="color: #6b7280; font-size: 0.9rem;">Total Logs</div>
+            </div>
+            <div style="background: #f0fdf4; padding: 1.5rem; border-radius: 8px; border: 1px solid #86efac; text-align: center;">
+                <div style="font-size: 2rem; font-weight: 600; color: #16a34a;">{{ create_count }}</div>
+                <div style="color: #6b7280; font-size: 0.9rem;">Create Operations</div>
+            </div>
+            <div style="background: #fef3c7; padding: 1.5rem; border-radius: 8px; border: 1px solid #fcd34d; text-align: center;">
+                <div style="font-size: 2rem; font-weight: 600; color: #d97706;">{{ update_count }}</div>
+                <div style="color: #6b7280; font-size: 0.9rem;">Update Operations</div>
+            </div>
+            <div style="background: #fee2e2; padding: 1.5rem; border-radius: 8px; border: 1px solid #fca5a5; text-align: center;">
+                <div style="font-size: 2rem; font-weight: 600; color: #dc2626;">{{ delete_count }}</div>
+                <div style="color: #6b7280; font-size: 0.9rem;">Delete Operations</div>
+            </div>
+        </div>
+
+        <!-- Filter Section -->
+        <div style="background: #f9fafb; padding: 1.5rem; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 2rem;">
+            <h3 style="margin-top: 0; color: #1f2937;">Filter Logs</h3>
+            <form method="GET" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; align-items: end;">
+                <div>
+                    <label for="operation" style="display: block; margin-bottom: 0.5rem; color: #374151; font-weight: 500;">Operation</label>
+                    <select name="operation" id="operation" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px;">
+                        <option value="">All Operations</option>
+                        <option value="CREATE" {% if selected_operation == 'CREATE' %}selected{% endif %}>Create</option>
+                        <option value="UPDATE" {% if selected_operation == 'UPDATE' %}selected{% endif %}>Update</option>
+                        <option value="DELETE" {% if selected_operation == 'DELETE' %}selected{% endif %}>Delete</option>
+                        <option value="VIEW" {% if selected_operation == 'VIEW' %}selected{% endif %}>View</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="model" style="display: block; margin-bottom: 0.5rem; color: #374151; font-weight: 500;">Model</label>
+                    <select name="model" id="model" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px;">
+                        <option value="">All Models</option>
+                        {% for model in models %}
+                            <option value="{{ model }}" {% if selected_model == model %}selected{% endif %}>{{ model }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="user" style="display: block; margin-bottom: 0.5rem; color: #374151; font-weight: 500;">User</label>
+                    <select name="user" id="user" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px;">
+                        <option value="">All Users</option>
+                        {% for user in users %}
+                            <option value="{{ user.username }}" {% if selected_user == user.username %}selected{% endif %}>{{ user.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="days" style="display: block; margin-bottom: 0.5rem; color: #374151; font-weight: 500;">Days</label>
+                    <select name="days" id="days" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px;">
+                        <option value="7" {% if selected_days == '7' %}selected{% endif %}>Last 7 days</option>
+                        <option value="30" {% if selected_days == '30' %}selected{% endif %}>Last 30 days</option>
+                        <option value="90" {% if selected_days == '90' %}selected{% endif %}>Last 90 days</option>
+                        <option value="365" {% if selected_days == '365' %}selected{% endif %}>Last year</option>
+                    </select>
+                </div>
+                
+                <div style="display: flex; gap: 0.5rem;">
+                    <button type="submit" class="btn btn-primary-modern" style="flex: 1;">
+                        <i class="fas fa-search"></i> Filter
+                    </button>
+                    <a href="{% url 'audit_log_list' %}" class="btn btn-primary-modern" style="flex: 1;">
+                        <i class="fas fa-redo"></i> Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Export Button -->
+        <div style="margin-bottom: 1.5rem;">
+            <a href="{% url 'audit_log_export' %}?{{ request.GET.urlencode }}" class="btn btn-primary-modern">
+                <i class="fas fa-download"></i> Export as CSV
+            </a>
+        </div>
+
+        <!-- Logs Table -->
+        {% if logs %}
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #1f2937;">Timestamp</th>
+                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #1f2937;">User</th>
+                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #1f2937;">Operation</th>
+                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #1f2937;">Model</th>
+                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #1f2937;">Object</th>
+                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #1f2937;">Changes</th>
+                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #1f2937;">IP Address</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                            <tr style="border-bottom: 1px solid #e5e7eb; hover_background: #f9fafb;">
+                                <td style="padding: 1rem; color: #6b7280; font-size: 0.9rem;">
+                                    {{ log.timestamp|date:'Y-m-d H:i:s' }}
+                                </td>
+                                <td style="padding: 1rem;">
+                                    {% if log.user %}
+                                        <span style="display: inline-block; padding: 0.25rem 0.75rem; background: #dbeafe; color: #1e40af; border-radius: 4px; font-size: 0.85rem; font-weight: 500;">
+                                            {{ log.user.username }}
+                                        </span>
+                                    {% else %}
+                                        <span style="color: #9ca3af;">Anonymous</span>
+                                    {% endif %}
+                                </td>
+                                <td style="padding: 1rem;">
+                                    {% if log.operation == 'CREATE' %}
+                                        <span style="display: inline-block; padding: 0.25rem 0.75rem; background: #d1fae5; color: #065f46; border-radius: 4px; font-size: 0.85rem; font-weight: 500;">
+                                            {{ log.operation }}
+                                        </span>
+                                    {% elif log.operation == 'UPDATE' %}
+                                        <span style="display: inline-block; padding: 0.25rem 0.75rem; background: #fef3c7; color: #92400e; border-radius: 4px; font-size: 0.85rem; font-weight: 500;">
+                                            {{ log.operation }}
+                                        </span>
+                                    {% elif log.operation == 'DELETE' %}
+                                        <span style="display: inline-block; padding: 0.25rem 0.75rem; background: #fee2e2; color: #7f1d1d; border-radius: 4px; font-size: 0.85rem; font-weight: 500;">
+                                            {{ log.operation }}
+                                        </span>
+                                    {% else %}
+                                        <span style="display: inline-block; padding: 0.25rem 0.75rem; background: #f3f4f6; color: #374151; border-radius: 4px; font-size: 0.85rem; font-weight: 500;">
+                                            {{ log.operation }}
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td style="padding: 1rem; color: #374151; font-weight: 500;">{{ log.model_name }}</td>
+                                <td style="padding: 1rem; color: #6b7280; font-size: 0.9rem;">
+                                    <code style="background: #f3f4f6; padding: 0.25rem 0.5rem; border-radius: 3px;">{{ log.object_id }}</code>
+                                    <br>
+                                    <small>{{ log.object_str|truncatewords:5 }}</small>
+                                </td>
+                                <td style="padding: 1rem; color: #6b7280; font-size: 0.85rem;">
+                                    {% if log.changes %}
+                                        <details>
+                                            <summary style="cursor: pointer; color: #3b82f6; text-decoration: underline;">View</summary>
+                                            <div style="margin-top: 0.5rem; padding: 0.5rem; background: #f9fafb; border-radius: 4px; font-size: 0.8rem;">
+                                                {% for field, change in log.changes.items %}
+                                                    <div><strong>{{ field }}:</strong> {{ change.0|truncatewords:5 }} → {{ change.1|truncatewords:5 }}</div>
+                                                {% endfor %}
+                                            </div>
+                                        </details>
+                                    {% else %}
+                                        <span style="color: #9ca3af;">—</span>
+                                    {% endif %}
+                                </td>
+                                <td style="padding: 1rem; color: #6b7280; font-size: 0.85rem;">{{ log.ip_address|default:"—" }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if is_paginated %}
+                <nav aria-label="Audit logs pagination" class="mt-5">
+                    <ul class="pagination pagination-modern justify-content-center">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1&{{ request.GET.urlencode }}">
+                                    <i class="fas fa-angle-double-left"></i> First
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&{{ request.GET.urlencode }}">
+                                    <i class="fas fa-angle-left"></i> Previous
+                                </a>
+                            </li>
+                        {% endif %}
+
+                        <li class="page-item active">
+                            <span class="page-link">
+                                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                            </span>
+                        </li>
+
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}&{{ request.GET.urlencode }}">
+                                    Next <i class="fas fa-angle-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&{{ request.GET.urlencode }}">
+                                    Last <i class="fas fa-angle-double-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-history"></i>
+                <h3>No Logs Found</h3>
+                <p>No audit logs match your filter criteria. Try adjusting your filters or select a broader time range.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

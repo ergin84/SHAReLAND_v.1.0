@@ -1,0 +1,12 @@
+{% extends "frontend/base.html" %}
+{% block content %}
+<div class="container mt-4">
+  <h2>Conferma eliminazione</h2>
+  <p>Sei sicuro di voler eliminare l'evidenza #{{ object.id }}?</p>
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">Elimina</button>
+    <a href="{% url 'evidence_list' %}" class="btn btn-secondary">Annulla</a>
+  </form>
+</div>
+{% endblock %}

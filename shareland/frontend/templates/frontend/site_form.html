@@ -1,0 +1,1824 @@
+{% extends "frontend/base.html" %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<style>
+    .wizard-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        padding: 2rem;
+    }
+    
+    .wizard-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 2rem;
+        border-bottom: 2px solid #e0e0e0;
+        padding-bottom: 0;
+    }
+    
+    .wizard-tab {
+        flex: 1;
+        min-width: 120px;
+        padding: 1rem;
+        background: #f8f9fa;
+        border: none;
+        border-radius: 8px 8px 0 0;
+        cursor: pointer;
+        transition: all 0.3s;
+        position: relative;
+        text-align: center;
+        font-weight: 500;
+        color: #6c757d;
+    }
+    
+    .wizard-tab:hover {
+        background: #e9ecef;
+    }
+    
+    .wizard-tab.active {
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(44, 62, 80, 0.3);
+    }
+    
+    .wizard-tab.completed {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .wizard-tab.completed::after {
+        content: '✓';
+        position: absolute;
+        top: 5px;
+        right: 10px;
+        font-weight: bold;
+        font-size: 1.2rem;
+        color: #28a745;
+    }
+    
+    .wizard-tab.has-errors {
+        background: #f8d7da;
+        color: #721c24;
+        border: 2px solid #f5c6cb;
+    }
+    
+    .wizard-tab.has-errors::after {
+        content: '!';
+        position: absolute;
+        top: 5px;
+        right: 10px;
+        font-weight: bold;
+        font-size: 1.2rem;
+        color: #dc3545;
+        background: white;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        line-height: 24px;
+    }
+    
+    .tab-content-wrapper {
+        min-height: 400px;
+        padding: 1.5rem;
+    }
+    
+    .wizard-navigation {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 2px solid #e0e0e0;
+    }
+    
+    .btn-wizard {
+        padding: 0.75rem 2rem;
+        font-size: 1rem;
+        font-weight: 600;
+        border-radius: 25px;
+        transition: all 0.3s;
+    }
+    
+    .btn-wizard-prev {
+        background: #6c757d;
+        color: white;
+        border: none;
+    }
+    
+    .btn-wizard-prev:hover {
+        background: #5a6268;
+        transform: translateX(-5px);
+    }
+    
+    .btn-wizard-next {
+        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        color: white;
+        border: none;
+    }
+    
+    .btn-wizard-next:hover {
+        background: linear-gradient(135deg, #2980b9 0%, #21618c 100%);
+        transform: translateX(5px);
+    }
+    
+    .btn-wizard-submit {
+        background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+        color: white;
+        border: none;
+    }
+    
+    .btn-wizard-submit:hover {
+        background: linear-gradient(135deg, #229954 0%, #1e8449 100%);
+        box-shadow: 0 4px 12px rgba(39, 174, 96, 0.4);
+    }
+    
+    .tab-pane {
+        display: none;
+    }
+    
+    .tab-pane.active {
+        display: block;
+        animation: fadeIn 0.3s;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .section-header {
+        color: #2c3e50;
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #3498db;
+    }
+    
+    .field-error {
+        border: 2px solid #dc3545 !important;
+        background-color: #fff5f5 !important;
+    }
+    
+    .error-message {
+        color: #dc3545;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+        display: block;
+    }
+</style>
+
+<div class="container mt-4">
+    <div class="wizard-container">
+        <h4 class="mb-4"><i class="fas fa-map-marker-alt"></i> Inserimento Nuovo Sito</h4>
+        
+        <form method="POST" id="siteForm" enctype="multipart/form-data" novalidate>
+            {% csrf_token %}
+
+            <!-- Wizard Tabs -->
+            <div class="wizard-tabs">
+                <button type="button" class="wizard-tab active" data-tab="general">
+                    <i class="fas fa-info-circle"></i><br>
+                    <small>General Info</small>
+                </button>
+                <button type="button" class="wizard-tab" data-tab="positioning">
+                    <i class="fas fa-map-pin"></i><br>
+                    <small>Positioning</small>
+                </button>
+                <button type="button" class="wizard-tab" data-tab="landscape">
+                    <i class="fas fa-mountain"></i><br>
+                    <small>Landscape</small>
+                </button>
+                <button type="button" class="wizard-tab" data-tab="interpretation">
+                    <i class="fas fa-search"></i><br>
+                    <small>Interpretation</small>
+                </button>
+                <button type="button" class="wizard-tab" data-tab="relationship">
+                    <i class="fas fa-project-diagram"></i><br>
+                    <small>Site-Environment</small>
+                </button>
+                <button type="button" class="wizard-tab" data-tab="research">
+                    <i class="fas fa-flask"></i><br>
+                    <small>Research History</small>
+                </button>
+                <button type="button" class="wizard-tab" data-tab="documentation">
+                    <i class="fas fa-file-alt"></i><br>
+                    <small>Documentation</small>
+                </button>
+                <button type="button" class="wizard-tab" data-tab="notes">
+                    <i class="fas fa-sticky-note"></i><br>
+                    <small>Notes</small>
+                </button>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="tab-content-wrapper">
+                <div class="tab-pane active" id="general" data-tab-name="general">
+                    <h5 class="section-header">General Information</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <fieldset class="border rounded p-3 mb-3">
+                                <legend class="float-none w-auto px-2 small text-muted">Location</legend>
+                                {{ form.site_name|as_crispy_field }}
+                                {{ form.id_country|as_crispy_field }}
+                                {{ form.id_region|as_crispy_field }}
+                                {{ form.id_province|as_crispy_field }}
+                                {{ form.id_municipality|as_crispy_field }}
+                            </fieldset>
+                        </div>
+                        <div class="col-md-6">
+                            <fieldset class="border rounded p-3 mb-3">
+                                <legend class="float-none w-auto px-2 small text-muted">Other Toponyms</legend>
+                                {{ form.ancient_place_name|as_crispy_field }}
+                                {{ form.contemporary_place_name|as_crispy_field }}
+                            </fieldset>
+                            <fieldset class="border rounded p-3 mb-3">
+                                <legend class="float-none w-auto px-2 small text-muted">Coordinates & Elevation</legend>
+                                <div class="row">
+                                    <div class="form-group">
+                                        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal"
+                                                data-bs-target="#uploadShapefileModal">
+                                            Carica shapefile
+                                        </button>
+
+                                        <button type="button" class="btn btn-outline-success" data-bs-toggle="modal"
+                                                data-bs-target="#drawMapModal">
+                                            Seleziona area su mappa
+                                        </button>
+                                    </div>
+
+                                    <small class="text-muted">La geometria verrà salvata automaticamente dal disegno
+                                        sulla mappa o dal file shapefile caricato.</small>
+                                    <input type="hidden" name="geometry" id="geometry">
+                                    <div class="col-md-6">
+                                        {{ form.lat|as_crispy_field }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        {{ form.lon|as_crispy_field }}
+                                    </div>
+                                    <div class="col-md-12">
+                                        {{ form.elevation|as_crispy_field }}
+                                    </div>
+                                </div>
+                            </fieldset>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <fieldset class="border rounded p-3 mb-3">
+                                <legend class="float-none w-auto px-2 small text-muted">Description</legend>
+                                {{ form.description|as_crispy_field }}
+                            </fieldset>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane" id="positioning" data-tab-name="positioning">
+                    <h5 class="section-header">Positioning Information</h5>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <fieldset class="border rounded p-3 mb-3">
+                                <legend class="float-none w-auto px-2 small text-muted">Positioning Mode</legend>
+                                {{ form.id_positioning_mode|as_crispy_field }}
+                            </fieldset>
+                        </div>
+                        <div class="col-md-4">
+                            <fieldset class="border rounded p-3 mb-3">
+                                <legend class="float-none w-auto px-2 small text-muted">Base Map</legend>
+                                {{ form.id_base_map|as_crispy_field }}
+                            </fieldset>
+                        </div>
+                        <div class="col-md-4">
+                            <fieldset class="border rounded p-3 mb-3">
+                                <legend class="float-none w-auto px-2 small text-muted">Positional Accuracy</legend>
+                                {{ form.id_positional_accuracy|as_crispy_field }}
+                            </fieldset>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane" id="landscape" data-tab-name="landscape">
+                    <h5 class="section-header">Landscape Characteristics</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <fieldset class="border rounded p-3 mb-3">
+                                <legend class="float-none w-auto px-2 small text-muted">Physiography</legend>
+                                {{ form.id_physiography|as_crispy_field }}
+                            </fieldset>
+                        </div>
+                        <div class="col-md-6">
+                            <fieldset class="border rounded p-3 mb-3">
+                                <legend class="float-none w-auto px-2 small text-muted">Topographic References</legend>
+                                {{ form.additional_topography|as_crispy_field }}
+                            </fieldset>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane" id="interpretation" data-tab-name="interpretation">
+                    <h5 class="section-header">Site Interpretation</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <fieldset class="border rounded p-3 mb-3">
+                                <legend class="float-none w-auto px-2 small text-muted">Classification</legend>
+                                {{ form.functional_class|as_crispy_field }}
+                                {{ form.typology|as_crispy_field }}
+                                {{ form.typology_detail|as_crispy_field }}
+                            </fieldset>
+                        </div>
+                        <div class="col-md-6">
+                            <fieldset class="border rounded p-3 mb-3">
+                                <legend class="float-none w-auto px-2 small text-muted">Chronology</legend>
+                                {{ form.chronology|as_crispy_field }}
+                                {{ form.chronology_certainty_level|as_crispy_field }}
+                            </fieldset>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane" id="relationship" data-tab-name="relationship">
+                    <h5 class="section-header">Site-Environment Relationship</h5>
+                    <div class="row">
+                        <div class="col-12">
+                            <fieldset class="border rounded p-3 mb-3">
+                                <legend class="float-none w-auto px-2 small text-muted">Relationship Description</legend>
+                                <p class="text-muted small">
+                                    Descrivi la relazione tra il sito archeologico e l'ambiente circostante, incluse
+                                    eventuali caratteristiche naturali o antropiche rilevanti.
+                                </p>
+                                {{ form.site_environment_relationship|as_crispy_field }}
+                            </fieldset>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane" id="research" data-tab-name="research">
+                    <h5 class="section-header">Research History</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <fieldset class="border rounded p-3 mb-3">
+                                <legend class="float-none w-auto px-2 small text-muted">First Discovery Method</legend>
+                                {{ form.id_first_discovery_method|as_crispy_field }}
+                            </fieldset>
+                        </div>
+                        <div class="col-md-6">
+                            <fieldset class="border rounded p-3 mb-3">
+                                <legend class="float-none w-auto px-2 small text-muted">Project Information</legend>
+                                {{ form.project_name|as_crispy_field }}
+                                {{ form.investigation_type|as_crispy_field }}
+                                {{ form.periodo|as_crispy_field }}
+                            </fieldset>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane" id="documentation" data-tab-name="documentation">
+                    <h5 class="section-header">Documentation</h5>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0"><i class="fas fa-book"></i> Bibliografia</h6>
+                                <button type="button" class="btn btn-sm btn-success" id="addBibliographyBtn">
+                                    <i class="fas fa-plus"></i> Add Bibliography
+                                </button>
+                            </div>
+                            <div id="bibliographyContainer">
+                                {% if existing_bibliographies %}
+                                    {% for biblio in existing_bibliographies %}
+                                    <div class="bibliography-item card mb-3 p-3" data-index="{{ forloop.counter0 }}">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <strong>Bibliography #{{ forloop.counter }}</strong>
+                                            <button type="button" class="btn btn-sm btn-danger remove-bibliography" {% if forloop.counter == 1 and existing_bibliographies|length == 1 %}style="display:none;"{% endif %}>
+                                                <i class="fas fa-trash"></i> Remove
+                                            </button>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <label for="biblio_title_{{ forloop.counter0 }}">Titolo</label>
+                                                <input type="text" class="form-control biblio-title" name="biblio_title_{{ forloop.counter0 }}" id="biblio_title_{{ forloop.counter0 }}" value="{{ biblio.title }}">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="biblio_author_{{ forloop.counter0 }}">Autore</label>
+                                                <input type="text" class="form-control biblio-author" name="biblio_author_{{ forloop.counter0 }}" id="biblio_author_{{ forloop.counter0 }}" value="{{ biblio.author }}">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="biblio_year_{{ forloop.counter0 }}">Anno</label>
+                                                <input type="number" class="form-control biblio-year" name="biblio_year_{{ forloop.counter0 }}" id="biblio_year_{{ forloop.counter0 }}" value="{{ biblio.year|default:'' }}">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="biblio_doi_{{ forloop.counter0 }}">DOI</label>
+                                                <input type="text" class="form-control biblio-doi" name="biblio_doi_{{ forloop.counter0 }}" id="biblio_doi_{{ forloop.counter0 }}" value="{{ biblio.doi }}">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="biblio_tipo_{{ forloop.counter0 }}">Tipo</label>
+                                                <input type="text" class="form-control biblio-tipo" name="biblio_tipo_{{ forloop.counter0 }}" id="biblio_tipo_{{ forloop.counter0 }}" value="{{ biblio.tipo }}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="bibliography-item card mb-3 p-3" data-index="0">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <strong>Bibliography #1</strong>
+                                            <button type="button" class="btn btn-sm btn-danger remove-bibliography" style="display:none;">
+                                                <i class="fas fa-trash"></i> Remove
+                                            </button>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <label for="biblio_title_0">Titolo</label>
+                                                <input type="text" class="form-control biblio-title" name="biblio_title_0" id="biblio_title_0">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="biblio_author_0">Autore</label>
+                                                <input type="text" class="form-control biblio-author" name="biblio_author_0" id="biblio_author_0">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="biblio_year_0">Anno</label>
+                                                <input type="number" class="form-control biblio-year" name="biblio_year_0" id="biblio_year_0">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="biblio_doi_0">DOI</label>
+                                                <input type="text" class="form-control biblio-doi" name="biblio_doi_0" id="biblio_doi_0">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="biblio_tipo_0">Tipo</label>
+                                                <input type="text" class="form-control biblio-tipo" name="biblio_tipo_0" id="biblio_tipo_0">
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mt-4">
+                        <!-- Sources -->
+                        <div class="col-md-6">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0"><i class="fas fa-archive"></i> Sources</h6>
+                                <button type="button" class="btn btn-sm btn-success addSourceBtn">
+                                    <i class="fas fa-plus"></i> Add
+                                </button>
+                            </div>
+                            <div class="sourcesContainer">
+                                {% if existing_sources %}
+                                    {% for source in existing_sources %}
+                                    <div class="source-item card mb-3 p-3" data-index="{{ forloop.counter0 }}">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <strong>Source #{{ forloop.counter }}</strong>
+                                            <button type="button" class="btn btn-sm btn-danger remove-source">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                        <div>
+                                            <label for="source_name_{{ forloop.counter0 }}">Name</label>
+                                            <input type="text" class="form-control source-name" name="source_name_{{ forloop.counter0 }}" id="source_name_{{ forloop.counter0 }}" value="{{ source.name }}">
+                                            <label for="source_chronology_{{ forloop.counter0 }}" class="mt-2">Chronology</label>
+                                            <select class="form-control source-chronology" name="source_chronology_{{ forloop.counter0 }}" id="source_chronology_{{ forloop.counter0 }}">
+                                                <option value="">---------</option>
+                                                {% for chrono in chronologies %}<option value="{{ chrono.id }}" {% if source.id_chronology.id == chrono.id %}selected{% endif %}>{{ chrono }}</option>{% endfor %}
+                                            </select>
+                                            <label for="source_type_{{ forloop.counter0 }}" class="mt-2">Type</label>
+                                            <select class="form-control source-type" name="source_type_{{ forloop.counter0 }}" id="source_type_{{ forloop.counter0 }}">
+                                                <option value="">---------</option>
+                                                {% for type in source_types %}<option value="{{ type.id }}" {% if source.id_sources_typology.id == type.id %}selected{% endif %}>{{ type }}</option>{% endfor %}
+                                            </select>
+                                            
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="source-item card mb-3 p-3" data-index="0">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <strong>Source #1</strong>
+                                            <button type="button" class="btn btn-sm btn-danger remove-source" style="display:none;">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                        <div>
+                                            <label for="source_name_0">Name</label>
+                                            <input type="text" class="form-control source-name" name="source_name_0" id="source_name_0">
+                                            <label for="source_chronology_0" class="mt-2">Chronology</label>
+                                            <select class="form-control source-chronology" name="source_chronology_0" id="source_chronology_0">
+                                                <option value="">---------</option>
+                                                {% for chrono in chronologies %}<option value="{{ chrono.id }}">{{ chrono }}</option>{% endfor %}
+                                            </select>
+                                            <label for="source_type_0" class="mt-2">Type</label>
+                                            <select class="form-control source-type" name="source_type_0" id="source_type_0">
+                                                <option value="">---------</option>
+                                                {% for type in source_types %}<option value="{{ type.id }}">{{ type }}</option>{% endfor %}
+                                            </select>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Other Documentation -->
+                        <div class="col-md-6">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0"><i class="fas fa-folder-open"></i> Other Docs</h6>
+                                <button type="button" class="btn btn-sm btn-success addDocBtn">
+                                    <i class="fas fa-plus"></i> Add
+                                </button>
+                            </div>
+                            <div class="docsContainer">
+                                {% if existing_docs %}
+                                    {% for doc in existing_docs %}
+                                    <div class="doc-item card mb-3 p-3" data-index="{{ forloop.counter0 }}">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <strong>Doc #{{ forloop.counter }}</strong>
+                                            <button type="button" class="btn btn-sm btn-danger remove-doc">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                        <div>
+                                            <label for="doc_name_{{ forloop.counter0 }}">Name</label>
+                                            <input type="text" class="form-control doc-name" name="doc_name_{{ forloop.counter0 }}" id="doc_name_{{ forloop.counter0 }}" value="{{ doc.name }}">
+                                            <label for="doc_author_{{ forloop.counter0 }}" class="mt-2">Author</label>
+                                            <input type="text" class="form-control doc-author" name="doc_author_{{ forloop.counter0 }}" id="doc_author_{{ forloop.counter0 }}" value="{{ doc.author }}">
+                                            <label for="doc_year_{{ forloop.counter0 }}" class="mt-2">Year</label>
+                                            <input type="number" class="form-control doc-year" name="doc_year_{{ forloop.counter0 }}" id="doc_year_{{ forloop.counter0 }}" value="{% if doc.year %}{{ doc.year }}{% endif %}">
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="doc-item card mb-3 p-3" data-index="0">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <strong>Doc #1</strong>
+                                            <button type="button" class="btn btn-sm btn-danger remove-doc" style="display:none;">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                        <div>
+                                            <label for="doc_name_0">Name</label>
+                                            <input type="text" class="form-control doc-name" name="doc_name_0" id="doc_name_0">
+                                            <label for="doc_author_0" class="mt-2">Author</label>
+                                            <input type="text" class="form-control doc-author" name="doc_author_0" id="doc_author_0">
+                                            <label for="doc_year_0" class="mt-2">Year</label>
+                                            <input type="number" class="form-control doc-year" name="doc_year_0" id="doc_year_0">
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Images -->
+                        <div class="col-md-6">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0"><i class="fas fa-images"></i> Images</h6>
+                                <button type="button" class="btn btn-sm btn-success addImageBtn">
+                                    <i class="fas fa-plus"></i> Add
+                                </button>
+                            </div>
+                            <div class="imagesContainer">
+                                {% if existing_images %}
+                                    {% for image in existing_images %}
+                                    <div class="image-item card mb-3 p-3" data-index="{{ forloop.counter0 }}">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <strong>Image #{{ forloop.counter }}</strong>
+                                            <button type="button" class="btn btn-sm btn-danger remove-image">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <label for="image_file_name_{{ forloop.counter0 }}">File Name</label>
+                                                <input type="text" class="form-control image-file-name" name="image_file_name_{{ forloop.counter0 }}" id="image_file_name_{{ forloop.counter0 }}" value="{{ image.file_name }}">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="image_type_{{ forloop.counter0 }}">Type</label>
+                                                <select class="form-control image-type" name="image_type_{{ forloop.counter0 }}" id="image_type_{{ forloop.counter0 }}">
+                                                    <option value="">---------</option>
+                                                    {% for type in image_types %}<option value="{{ type.id }}" {% if image.id_image_type.id == type.id %}selected{% endif %}>{{ type }}</option>{% endfor %}
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="image_scale_{{ forloop.counter0 }}" class="mt-2">Scale</label>
+                                                <select class="form-control image-scale" name="image_scale_{{ forloop.counter0 }}" id="image_scale_{{ forloop.counter0 }}">
+                                                    <option value="">---------</option>
+                                                    {% for scale in image_scales %}<option value="{{ scale.id }}" {% if image.id_image_scale.id == scale.id %}selected{% endif %}>{{ scale }}</option>{% endfor %}
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="image_acquisition_date_{{ forloop.counter0 }}" class="mt-2">Acquisition Date</label>
+                                                <input type="date" class="form-control image-acquisition-date" name="image_acquisition_date_{{ forloop.counter0 }}" id="image_acquisition_date_{{ forloop.counter0 }}" value="{{ image.acquisition_date|date:'Y-m-d' }}">
+                                            </div>
+                                            <div class="col-md-12">
+                                                <label for="image_desc_{{ forloop.counter0 }}" class="mt-2">Description</label>
+                                                <textarea class="form-control image-desc" name="image_desc_{{ forloop.counter0 }}" id="image_desc_{{ forloop.counter0 }}" rows="2">{{ image.desc_image }}</textarea>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="image_format_{{ forloop.counter0 }}" class="mt-2">Format</label>
+                                                <input type="text" class="form-control image-format" name="image_format_{{ forloop.counter0 }}" id="image_format_{{ forloop.counter0 }}" value="{{ image.format }}">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="image_projection_{{ forloop.counter0 }}" class="mt-2">Projection</label>
+                                                <input type="text" class="form-control image-projection" name="image_projection_{{ forloop.counter0 }}" id="image_projection_{{ forloop.counter0 }}" value="{{ image.projection }}">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="image_spatial_resolution_{{ forloop.counter0 }}" class="mt-2">Spatial Resolution</label>
+                                                <input type="text" class="form-control image-spatial-resolution" name="image_spatial_resolution_{{ forloop.counter0 }}" id="image_spatial_resolution_{{ forloop.counter0 }}" value="{{ image.spatial_resolution }}">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="image_author_{{ forloop.counter0 }}" class="mt-2">Author</label>
+                                                <input type="text" class="form-control image-author" name="image_author_{{ forloop.counter0 }}" id="image_author_{{ forloop.counter0 }}" value="{{ image.author }}">
+                                            </div>
+                                            <div class="col-md-12">
+                                                <div class="mt-2">
+                                                    <div class="btn-group w-100" role="group">
+                                                        <input type="radio" class="btn-check image-upload-type" name="image_upload_type_{{ forloop.counter0 }}" id="image_url_{{ forloop.counter0 }}" value="url" {% if image.source_url and not image.source_url|slice:':7' == 'file://' %}checked{% endif %}>
+                                                        <label class="btn btn-outline-primary btn-sm" for="image_url_{{ forloop.counter0 }}"><i class="fas fa-link"></i> URL</label>
+
+                                                        <input type="radio" class="btn-check image-upload-type" name="image_upload_type_{{ forloop.counter0 }}" id="image_upload_{{ forloop.counter0 }}" value="upload" {% if image.source_url and image.source_url|slice:':7' == 'file://' %}checked{% endif %}>
+                                                        <label class="btn btn-outline-primary btn-sm" for="image_upload_{{ forloop.counter0 }}"><i class="fas fa-file-upload"></i> Upload</label>
+                                                    </div>
+                                                </div>
+                                                <div class="image-source-url-input mt-2" {% if image.source_url and image.source_url|slice:':7' == 'file://' %}style="display:none;"{% endif %}>
+                                                    <label for="image_source_url_field_{{ forloop.counter0 }}">Source URL</label>
+                                                    <input type="url" class="form-control image-source-url" name="image_source_url_{{ forloop.counter0 }}" id="image_source_url_field_{{ forloop.counter0 }}" value="{% if image.source_url and not image.source_url|slice:':7' == 'file://' %}{{ image.source_url }}{% endif %}">
+                                                </div>
+                                                <div class="image-source-upload-input mt-2" {% if image.source_url and image.source_url|slice:':7' == 'file://' %}{% else %}style="display:none;"{% endif %}>
+                                                    <label for="image_file_{{ forloop.counter0 }}">Upload File</label>
+                                                    <input type="file" class="form-control image-source-file" name="image_file_{{ forloop.counter0 }}" id="image_file_{{ forloop.counter0 }}" accept="image/*">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-12">
+                                                <label for="image_key_words_{{ forloop.counter0 }}" class="mt-2">Key Words</label>
+                                                <input type="text" class="form-control image-key-words" name="image_key_words_{{ forloop.counter0 }}" id="image_key_words_{{ forloop.counter0 }}" value="{{ image.key_words }}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="image-item card mb-3 p-3" data-index="0">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <strong>Image #1</strong>
+                                            <button type="button" class="btn btn-sm btn-danger remove-image" style="display:none;">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <label for="image_file_name_0">File Name</label>
+                                                <input type="text" class="form-control image-file-name" name="image_file_name_0" id="image_file_name_0">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="image_type_0">Type</label>
+                                                <select class="form-control image-type" name="image_type_0" id="image_type_0">
+                                                    <option value="">---------</option>
+                                                    {% for type in image_types %}<option value="{{ type.id }}">{{ type }}</option>{% endfor %}
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="image_scale_0" class="mt-2">Scale</label>
+                                                <select class="form-control image-scale" name="image_scale_0" id="image_scale_0">
+                                                    <option value="">---------</option>
+                                                    {% for scale in image_scales %}<option value="{{ scale.id }}">{{ scale }}</option>{% endfor %}
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="image_acquisition_date_0" class="mt-2">Acquisition Date</label>
+                                                <input type="date" class="form-control image-acquisition-date" name="image_acquisition_date_0" id="image_acquisition_date_0">
+                                            </div>
+                                            <div class="col-md-12">
+                                                <label for="image_desc_0" class="mt-2">Description</label>
+                                                <textarea class="form-control image-desc" name="image_desc_0" id="image_desc_0" rows="2"></textarea>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="image_format_0" class="mt-2">Format</label>
+                                                <input type="text" class="form-control image-format" name="image_format_0" id="image_format_0">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="image_projection_0" class="mt-2">Projection</label>
+                                                <input type="text" class="form-control image-projection" name="image_projection_0" id="image_projection_0">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="image_spatial_resolution_0" class="mt-2">Spatial Resolution</label>
+                                                <input type="text" class="form-control image-spatial-resolution" name="image_spatial_resolution_0" id="image_spatial_resolution_0">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="image_author_0" class="mt-2">Author</label>
+                                                <input type="text" class="form-control image-author" name="image_author_0" id="image_author_0">
+                                            </div>
+                                            <div class="col-md-12">
+                                                <div class="mt-2">
+                                                    <div class="btn-group w-100" role="group">
+                                                        <input type="radio" class="btn-check image-upload-type" name="image_upload_type_0" id="image_url_0" value="url" checked>
+                                                        <label class="btn btn-outline-primary btn-sm" for="image_url_0"><i class="fas fa-link"></i> URL</label>
+
+                                                        <input type="radio" class="btn-check image-upload-type" name="image_upload_type_0" id="image_upload_0" value="upload">
+                                                        <label class="btn btn-outline-primary btn-sm" for="image_upload_0"><i class="fas fa-file-upload"></i> Upload</label>
+                                                    </div>
+                                                </div>
+                                                <div class="image-source-url-input mt-2">
+                                                    <label for="image_source_url_field_0">Source URL</label>
+                                                    <input type="url" class="form-control image-source-url" name="image_source_url_0" id="image_source_url_field_0">
+                                                </div>
+                                                <div class="image-source-upload-input mt-2" style="display:none;">
+                                                    <label for="image_file_0">Upload File</label>
+                                                    <input type="file" class="form-control image-source-file" name="image_file_0" id="image_file_0" accept="image/*">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-12">
+                                                <label for="image_key_words_0" class="mt-2">Key Words</label>
+                                                <input type="text" class="form-control image-key-words" name="image_key_words_0" id="image_key_words_0">
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane" id="notes" data-tab-name="notes">
+                    <h5 class="section-header">Additional Notes</h5>
+                    <div class="row">
+                        <div class="col-12">
+                            <fieldset class="border rounded p-3 mb-3">
+                                <legend class="float-none w-auto px-2 small text-muted">Notes</legend>
+                                <p class="text-muted small">
+                                    Riporta qui altre informazioni che non trovano spazio nei campi precedenti. Vanno bene
+                                    appunti, dubbi, riflessioni...
+                                </p>
+                                {{ form.notes|as_crispy_field }}
+                            </fieldset>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation Buttons -->
+            <div class="wizard-navigation">
+                <button type="button" class="btn btn-wizard btn-wizard-prev" id="prevBtn" style="display:none;">
+                    <i class="fas fa-arrow-left"></i> Previous
+                </button>
+                <div>
+                    <button type="button" class="btn btn-wizard btn-wizard-next" id="nextBtn">
+                        Next <i class="fas fa-arrow-right"></i>
+                    </button>
+                    <button type="submit" class="btn btn-wizard btn-wizard-submit" id="submitBtn" style="display:none;">
+                        <i class="fas fa-save"></i> Save Site
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('siteForm');
+        const tabs = document.querySelectorAll('.wizard-tab');
+        const tabPanes = document.querySelectorAll('.tab-pane');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        let currentTab = 0;
+        const tabOrder = ['general', 'positioning', 'landscape', 'interpretation', 'relationship', 'research', 'documentation', 'notes'];
+        
+        // Required fields per tab (must match form field required=True definitions)
+        // Note: Django Crispy Forms generates IDs with 'id_' prefix
+        const requiredFields = {
+            general: ['id_site_name'],  // site_name is the only required field in Site model
+            interpretation: ['id_functional_class', 'id_chronology'],  // functional_class and chronology have required=True
+            research: []  // id_first_discovery_method has blank=True, null=True
+        };
+        
+        // Debug: Log field IDs to console for troubleshooting (only in development)
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            console.log('Checking required fields:', requiredFields);
+            requiredFields.general.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                console.log(`Field ${fieldId}:`, field ? 'found' : 'NOT FOUND');
+            });
+            requiredFields.interpretation.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                console.log(`Field ${fieldId}:`, field ? 'found' : 'NOT FOUND');
+            });
+        }
+
+        function showTab(index) {
+            // Hide all tab panes
+            tabPanes.forEach(pane => {
+                pane.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            tabs.forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show current tab pane
+            const tabName = tabOrder[index];
+            const currentPane = document.getElementById(tabName);
+            if (currentPane) {
+                currentPane.classList.add('active');
+            }
+            
+            // Mark current tab button as active
+            if (tabs[index]) {
+                tabs[index].classList.add('active');
+            }
+            
+            // Update navigation buttons
+            if (prevBtn) {
+                prevBtn.style.display = index === 0 ? 'none' : 'inline-block';
+            }
+            if (nextBtn) {
+                nextBtn.style.display = index === tabOrder.length - 1 ? 'none' : 'inline-block';
+            }
+            if (submitBtn) {
+                // Always show submit button on last tab, hide on others
+                submitBtn.style.display = index === tabOrder.length - 1 ? 'inline-block' : 'none';
+                // Ensure button is enabled
+                submitBtn.disabled = false;
+            }
+            
+            currentTab = index;
+            
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function validateTab(tabName) {
+            const fieldsToCheck = requiredFields[tabName] || [];
+            let isValid = true;
+            const errors = [];
+
+            fieldsToCheck.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    const value = field.value ? field.value.trim() : '';
+                    if (!value || value === '' || value === '---------') {
+                        isValid = false;
+                        errors.push(field);
+                        field.classList.add('field-error');
+                        
+                        // Add error message if not exists
+                        let errorMsg = field.parentElement.querySelector('.error-message');
+                        if (!errorMsg) {
+                            errorMsg = document.createElement('span');
+                            errorMsg.className = 'error-message';
+                            errorMsg.style.color = '#dc3545';
+                            errorMsg.style.fontSize = '0.875rem';
+                            errorMsg.textContent = 'This field is required';
+                            field.parentElement.appendChild(errorMsg);
+                        }
+                    } else {
+                        field.classList.remove('field-error');
+                        const errorMsg = field.parentElement.querySelector('.error-message');
+                        if (errorMsg) {
+                            errorMsg.remove();
+                        }
+                    }
+                } else {
+                    // Field not found - log warning but don't block submission
+                    console.warn(`Required field ${fieldId} not found in tab ${tabName}`);
+                }
+            });
+
+            return { isValid, errors };
+        }
+
+        function updateTabStatus(tabIndex, hasErrors) {
+            const tab = tabs[tabIndex];
+            if (tab) {
+                if (hasErrors) {
+                    tab.classList.add('has-errors');
+                    tab.classList.remove('completed');
+                } else {
+                    tab.classList.remove('has-errors');
+                    if (tabIndex < currentTab) {
+                        tab.classList.add('completed');
+                    }
+                }
+            }
+        }
+
+        function nextTab() {
+            const currentTabName = tabOrder[currentTab];
+            const validation = validateTab(currentTabName);
+            
+            updateTabStatus(currentTab, !validation.isValid);
+            
+            if (!validation.isValid) {
+                // Show error message
+                alert('Please fill in all required fields before proceeding.');
+                // Focus on first error field
+                if (validation.errors.length > 0) {
+                    validation.errors[0].focus();
+                }
+                return;
+            }
+            
+            if (currentTab < tabOrder.length - 1) {
+                showTab(currentTab + 1);
+            }
+        }
+
+        function prevTab() {
+            if (currentTab > 0) {
+                showTab(currentTab - 1);
+            }
+        }
+
+        // Tab click handlers
+        tabs.forEach((tab, index) => {
+            tab.addEventListener('click', function(e) {
+                e.preventDefault();
+                // Validate current tab before allowing navigation
+                const currentTabName = tabOrder[currentTab];
+                const validation = validateTab(currentTabName);
+                updateTabStatus(currentTab, !validation.isValid);
+                
+                // Allow navigation to any tab
+                showTab(index);
+            });
+        });
+
+        // Button handlers
+        if (nextBtn) {
+            nextBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                nextTab();
+            });
+        }
+        
+        if (prevBtn) {
+            prevBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                prevTab();
+            });
+        }
+        
+        // Direct submit button handler - prevent multiple clicks
+        let isSubmitting = false;
+        if (submitBtn) {
+            submitBtn.addEventListener('click', function(e) {
+                if (isSubmitting) {
+                    console.log('Already submitting, ignoring click');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                }
+                
+                console.log('Submit button clicked - preparing form for submission');
+                
+                // Prevent default to allow us to prepare fields first
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // CRITICAL: Disable and change type of ALL hidden image URL fields BEFORE form submit
+                // Must check ALL inputs (not just type="url") because type may have been changed already
+                // Process ALL image URL inputs - disable hidden ones and change their type
+                document.querySelectorAll('.image-source-url-input input').forEach(inp => {
+                    const parent = inp.closest('.image-source-url-input');
+                    const isHidden = parent && (parent.style.display === 'none' || window.getComputedStyle(parent).display === 'none');
+                    if (isHidden) {
+                        // Change type FIRST before disabling to avoid browser validation
+                        if (inp.type === 'url') {
+                            if (!inp.hasAttribute('data-original-type')) {
+                                inp.setAttribute('data-original-type', 'url');
+                            }
+                            inp.type = 'text';
+                        }
+                        inp.disabled = true;
+                        inp.removeAttribute('required');
+                        inp.removeAttribute('aria-required');
+                    }
+                });
+                
+                // Disable ALL hidden image file fields
+                document.querySelectorAll('.image-source-upload-input input[type="file"]').forEach(inp => {
+                    const parent = inp.closest('.image-source-upload-input');
+                    const isHidden = parent && (parent.style.display === 'none' || window.getComputedStyle(parent).display === 'none');
+                    if (isHidden) {
+                        inp.disabled = true;
+                        inp.removeAttribute('required');
+                        inp.removeAttribute('aria-required');
+                    }
+                });
+                
+                // Force a synchronous reflow to ensure changes are applied
+                void form.offsetHeight;
+                
+                // Disable button to prevent multiple submissions
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+                
+                // Now trigger form submission after fields are prepared
+                // Use requestSubmit to trigger the submit event handler for validation
+                setTimeout(() => {
+                    form.requestSubmit();
+                }, 10);
+                
+                return false;
+            });
+        }
+
+        // Form submission validation
+        form.addEventListener('submit', function(e) {
+            console.log('Form submit event triggered, isSubmitting:', isSubmitting);
+            
+            // Prevent multiple submissions - check if already submitting
+            // This prevents duplicate submissions from multiple sources (double-click, etc.)
+            if (isSubmitting) {
+                console.log('Already submitting, preventing duplicate submit');
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                return false;
+            }
+            
+            // Mark as submitting immediately to prevent duplicate submissions
+            isSubmitting = true;
+            
+            // Update button state if it exists (in case form was submitted another way)
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            }
+            
+            // CRITICAL: Disable and change type of ALL hidden image URL fields
+            // This is a backup check in case the button handler didn't catch them all
+            document.querySelectorAll('.image-source-url-input input').forEach(inp => {
+                const parent = inp.closest('.image-source-url-input');
+                const isHidden = parent && (parent.style.display === 'none' || window.getComputedStyle(parent).display === 'none');
+                if (isHidden) {
+                    inp.disabled = true;
+                    inp.removeAttribute('required');
+                    inp.removeAttribute('aria-required');
+                    // Change type from url to text to completely avoid URL validation
+                    if (inp.type === 'url') {
+                        if (!inp.hasAttribute('data-original-type')) {
+                            inp.setAttribute('data-original-type', 'url');
+                        }
+                        inp.type = 'text';
+                    }
+                }
+            });
+            
+            // Disable hidden image file inputs
+            document.querySelectorAll('.image-source-upload-input input[type="file"]').forEach(inp => {
+                const parent = inp.closest('.image-source-upload-input');
+                const isHidden = parent && (parent.style.display === 'none' || window.getComputedStyle(parent).display === 'none');
+                if (isHidden) {
+                    inp.disabled = true;
+                    inp.removeAttribute('required');
+                    inp.removeAttribute('aria-required');
+                }
+            });
+            
+            // Client-side validation: ensure uploaded image files are images
+            const imageFileInputs = document.querySelectorAll('.image-source-file');
+            let invalidImage = false;
+            imageFileInputs.forEach(inp => {
+                // Skip validation for hidden inputs
+                const uploadInput = inp.closest('.image-source-upload-input');
+                if (uploadInput && uploadInput.style.display === 'none') {
+                    return;
+                }
+                
+                if (inp.closest('.image-item')) {
+                    const uploadRadio = inp.closest('.image-item').querySelector('.image-upload-type[value="upload"]');
+                    const isUploadSelected = uploadRadio && uploadRadio.checked;
+                    if (isUploadSelected && inp.files && inp.files.length > 0) {
+                        const file = inp.files[0];
+                        if (!file.type || !file.type.startsWith('image/')) {
+                            invalidImage = true;
+                            inp.classList.add('field-error');
+                        } else {
+                            inp.classList.remove('field-error');
+                        }
+                    }
+                }
+            });
+            if (invalidImage) {
+                e.preventDefault();
+                e.stopPropagation();
+                isSubmitting = false;
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-save"></i> Save Site';
+                }
+                alert('Please upload only image files in the Images section.');
+                return false;
+            }
+            
+            // Validate only critical required fields before submission
+            // Allow Django server-side validation to handle the rest
+            let hasCriticalErrors = false;
+            const criticalTabs = ['general', 'interpretation']; // Only validate these tabs
+            
+            console.log('Validating critical tabs:', criticalTabs);
+            criticalTabs.forEach((tabName) => {
+                const validation = validateTab(tabName);
+                console.log(`Tab ${tabName} validation result:`, validation);
+                const tabIndex = tabOrder.indexOf(tabName);
+                if (tabIndex >= 0) {
+                    updateTabStatus(tabIndex, !validation.isValid);
+                }
+                if (!validation.isValid) {
+                    hasCriticalErrors = true;
+                    console.log(`Tab ${tabName} has errors:`, validation.errors);
+                }
+            });
+
+            if (hasCriticalErrors) {
+                console.log('Validation failed - preventing form submission');
+                e.preventDefault();
+                e.stopPropagation();
+                isSubmitting = false;
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-save"></i> Save Site';
+                }
+                alert('Please fill in all required fields (Site Name, Functional Class, and Chronology) before submitting.');
+                // Go to first tab with errors
+                for (let i = 0; i < tabOrder.length; i++) {
+                    const validation = validateTab(tabOrder[i]);
+                    if (!validation.isValid) {
+                        showTab(i);
+                        break;
+                    }
+                }
+                return false;
+            }
+            
+            console.log('All validation passed - form will submit');
+            
+            // If validation passes, allow form submission
+            // isSubmitting is already set to true at the beginning
+            console.log('Form validation passed, submitting form to server...');
+            // Don't call preventDefault - allow the form to submit naturally
+            // The browser will handle the actual POST request to the server
+            // Return true (or don't return false) to allow submission
+        });
+
+        // Initialize - disable hidden image fields on page load
+        function disableHiddenImageFields() {
+            document.querySelectorAll('.image-source-url-input').forEach(container => {
+                const inp = container.querySelector('input');
+                if (inp && window.getComputedStyle(container).display === 'none') {
+                    inp.disabled = true;
+                    inp.removeAttribute('required');
+                    inp.removeAttribute('aria-required');
+                    // Change type to text to avoid URL validation when hidden
+                    if (inp.type === 'url') {
+                        if (!inp.hasAttribute('data-original-type')) {
+                            inp.setAttribute('data-original-type', 'url');
+                        }
+                        inp.type = 'text';
+                    }
+                }
+            });
+            
+            document.querySelectorAll('.image-source-upload-input').forEach(container => {
+                const inp = container.querySelector('input[type="file"]');
+                if (inp && window.getComputedStyle(container).display === 'none') {
+                    inp.disabled = true;
+                    inp.removeAttribute('required');
+                    inp.removeAttribute('aria-required');
+                }
+            });
+        }
+        
+        // Initialize - ensure we're on the last tab if this is an update form
+        // Check if form has an object (update) vs new (create)
+        const isUpdateForm = form.querySelector('input[name="csrfmiddlewaretoken"]') && window.location.pathname.includes('/update/');
+        if (isUpdateForm) {
+            // For update forms, start on last tab to show Save button immediately
+            showTab(tabOrder.length - 1);
+        } else {
+            // For create forms, start on first tab
+            showTab(0);
+        }
+        
+        // Disable hidden fields on page load
+        setTimeout(disableHiddenImageFields, 100);
+
+        // === AJAX handlers for dependent dropdowns ===
+        const fc = document.getElementById('id_functional_class');
+        const typology = document.getElementById('id_typology');
+        const detail = document.getElementById('id_typology_detail');
+        const region = document.getElementById('id_id_region');
+        const province = document.getElementById('id_id_province');
+        const municipality = document.getElementById('id_id_municipality');
+
+        if (fc) {
+            fc.addEventListener('change', function () {
+                fetch(`/ajax/load-typologies/?functional_class=${fc.value}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        typology.innerHTML = '<option value="">---------</option>';
+                        detail.innerHTML = '<option value="">---------</option>';
+                        data.forEach(opt => typology.innerHTML += `<option value="${opt.id}">${opt.desc_typology}</option>`);
+                    });
+            });
+        }
+
+        if (typology) {
+            typology.addEventListener('change', function () {
+                fetch(`/ajax/load-typology-details/?typology=${typology.value}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        detail.innerHTML = '<option value="">---------</option>';
+                        data.forEach(opt => detail.innerHTML += `<option value="${opt.id}">${opt.desc_typology_detail}</option>`);
+                    });
+            });
+        }
+
+        if (region) {
+            region.addEventListener('change', function () {
+                fetch(`/ajax/load-provinces/?region=${region.value}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        province.innerHTML = '<option value="">---------</option>';
+                        data.forEach(opt => province.innerHTML += `<option value="${opt.id}">${opt.denominazione_provincia}</option>`);
+                        municipality.innerHTML = '<option value="">---------</option>';
+                    });
+            });
+        }
+
+        if (province) {
+            province.addEventListener('change', function () {
+                fetch(`/ajax/load-municipalities/?province=${province.value}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        municipality.innerHTML = '<option value="">---------</option>';
+                        data.forEach(item => {
+                            municipality.innerHTML += `<option value="${item.id}">${item.denominazione_comune}</option>`;
+                        });
+                    });
+            });
+        }
+
+        // Remove field-error class on input
+        document.querySelectorAll('input, select, textarea').forEach(field => {
+            field.addEventListener('input', function() {
+                this.classList.remove('field-error');
+                const errorMsg = this.parentElement.querySelector('.error-message');
+                if (errorMsg) {
+                    errorMsg.remove();
+                }
+            });
+        });
+
+        // === Bibliography Management ===
+        const bibliographyContainer = document.getElementById('bibliographyContainer');
+        const addBibliographyBtn = document.getElementById('addBibliographyBtn');
+        
+        // Set initial count based on existing items
+        let bibliographyCount = bibliographyContainer.querySelectorAll('.bibliography-item').length;
+
+        if (addBibliographyBtn) {
+            addBibliographyBtn.addEventListener('click', function() {
+                const newIndex = bibliographyCount;
+                const newBiblio = document.createElement('div');
+                newBiblio.className = 'bibliography-item card mb-3 p-3';
+                newBiblio.setAttribute('data-index', newIndex);
+                newBiblio.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <strong>Bibliography #${newIndex + 1}</strong>
+                        <button type="button" class="btn btn-sm btn-danger remove-bibliography">
+                            <i class="fas fa-trash"></i> Remove
+                        </button>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label for="biblio_title_${newIndex}">Titolo</label>
+                            <input type="text" class="form-control biblio-title" name="biblio_title_${newIndex}" id="biblio_title_${newIndex}">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="biblio_author_${newIndex}">Autore</label>
+                            <input type="text" class="form-control biblio-author" name="biblio_author_${newIndex}" id="biblio_author_${newIndex}">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="biblio_year_${newIndex}">Anno</label>
+                            <input type="number" class="form-control biblio-year" name="biblio_year_${newIndex}" id="biblio_year_${newIndex}">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="biblio_doi_${newIndex}">DOI</label>
+                            <input type="text" class="form-control biblio-doi" name="biblio_doi_${newIndex}" id="biblio_doi_${newIndex}">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="biblio_tipo_${newIndex}">Tipo</label>
+                            <input type="text" class="form-control biblio-tipo" name="biblio_tipo_${newIndex}" id="biblio_tipo_${newIndex}">
+                        </div>
+                    </div>
+                `;
+                bibliographyContainer.appendChild(newBiblio);
+                bibliographyCount++;
+                updateRemoveButtons();
+            });
+        }
+
+        // Handle remove bibliography button clicks
+        if (bibliographyContainer) {
+            bibliographyContainer.addEventListener('click', function(e) {
+                if (e.target.classList.contains('remove-bibliography') || e.target.closest('.remove-bibliography')) {
+                    const btn = e.target.classList.contains('remove-bibliography') ? e.target : e.target.closest('.remove-bibliography');
+                    const biblioItem = btn.closest('.bibliography-item');
+                    biblioItem.remove();
+                    updateBibliographyNumbers();
+                    updateRemoveButtons();
+                }
+            });
+        }
+
+        function updateBibliographyNumbers() {
+            const items = bibliographyContainer.querySelectorAll('.bibliography-item');
+            items.forEach((item, index) => {
+                item.querySelector('strong').textContent = `Bibliography #${index + 1}`;
+            });
+        }
+
+        function updateRemoveButtons() {
+            const items = bibliographyContainer.querySelectorAll('.bibliography-item');
+            const removeButtons = bibliographyContainer.querySelectorAll('.remove-bibliography');
+            
+            if (items.length === 1) {
+                removeButtons.forEach(btn => btn.style.display = 'none');
+            } else {
+                removeButtons.forEach(btn => btn.style.display = 'inline-block');
+            }
+        }
+
+        // ===== SOURCES MANAGEMENT =====
+        const sourcesContainer = document.querySelector('.sourcesContainer');
+        // Set initial count based on existing items
+        let sourceCount = sourcesContainer.querySelectorAll('.source-item').length;
+
+        const addSourceBtn = document.querySelector('.addSourceBtn');
+        if (addSourceBtn) {
+            addSourceBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const newSource = document.createElement('div');
+                newSource.className = 'source-item card mb-3 p-3';
+                newSource.setAttribute('data-index', sourceCount);
+                newSource.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <strong>Source #${sourceCount + 1}</strong>
+                        <button type="button" class="btn btn-sm btn-danger remove-source">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                    <div>
+                        <label for="source_name_${sourceCount}">Name</label>
+                        <input type="text" class="form-control source-name" name="source_name_${sourceCount}" id="source_name_${sourceCount}">
+                        <label for="source_chronology_${sourceCount}" class="mt-2">Chronology</label>
+                        <select class="form-control source-chronology" name="source_chronology_${sourceCount}" id="source_chronology_${sourceCount}">
+                            <option value="">---------</option>
+                            {% for chrono in chronologies %}<option value="{{ chrono.id }}">{{ chrono }}</option>{% endfor %}
+                        </select>
+                        <label for="source_type_${sourceCount}" class="mt-2">Type</label>
+                        <select class="form-control source-type" name="source_type_${sourceCount}" id="source_type_${sourceCount}">
+                            <option value="">---------</option>
+                            {% for type in source_types %}<option value="{{ type.id }}">{{ type }}</option>{% endfor %}
+                        </select>
+                        <label for="source_type_${sourceCount}" class="mt-2">Type</label>
+                        <select class="form-control source-type" name="source_type_${sourceCount}" id="source_type_${sourceCount}">
+                            <option value="">---------</option>
+                            {% for type in source_types %}<option value="{{ type.id }}">{{ type }}</option>{% endfor %}
+                        </select>
+                    </div>
+                `;
+                sourcesContainer.appendChild(newSource);
+                sourceCount++;
+                updateSourceRemoveButtons();
+            });
+        }
+
+        if (sourcesContainer) {
+            sourcesContainer.addEventListener('click', function(e) {
+                if (e.target.classList.contains('remove-source') || e.target.closest('.remove-source')) {
+                    const btn = e.target.classList.contains('remove-source') ? e.target : e.target.closest('.remove-source');
+                    const sourceItem = btn.closest('.source-item');
+                    sourceItem.remove();
+                    updateSourceNumbers();
+                    updateSourceRemoveButtons();
+                }
+            });
+        }
+
+        function updateSourceNumbers() {
+            const items = sourcesContainer.querySelectorAll('.source-item');
+            items.forEach((item, index) => {
+                item.querySelector('strong').textContent = `Source #${index + 1}`;
+            });
+        }
+
+        function updateSourceRemoveButtons() {
+            const items = sourcesContainer.querySelectorAll('.source-item');
+            const removeButtons = sourcesContainer.querySelectorAll('.remove-source');
+            
+            if (items.length === 1) {
+                removeButtons.forEach(btn => btn.style.display = 'none');
+            } else {
+                removeButtons.forEach(btn => btn.style.display = 'inline-block');
+            }
+        }
+
+        // ===== DOCUMENTATION MANAGEMENT =====
+        const docsContainer = document.querySelector('.docsContainer');
+        // Set initial count based on existing items
+        let docCount = docsContainer.querySelectorAll('.doc-item').length;
+
+        const addDocBtn = document.querySelector('.addDocBtn');
+        if (addDocBtn) {
+            addDocBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const newDoc = document.createElement('div');
+                newDoc.className = 'doc-item card mb-3 p-3';
+                newDoc.setAttribute('data-index', docCount);
+                newDoc.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <strong>Doc #${docCount + 1}</strong>
+                        <button type="button" class="btn btn-sm btn-danger remove-doc">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                    <div>
+                        <label for="doc_name_${docCount}">Name</label>
+                        <input type="text" class="form-control doc-name" name="doc_name_${docCount}" id="doc_name_${docCount}">
+                        <label for="doc_author_${docCount}" class="mt-2">Author</label>
+                        <input type="text" class="form-control doc-author" name="doc_author_${docCount}" id="doc_author_${docCount}">
+                        <label for="doc_year_${docCount}" class="mt-2">Year</label>
+                        <input type="number" class="form-control doc-year" name="doc_year_${docCount}" id="doc_year_${docCount}">
+                    </div>
+                `;
+                docsContainer.appendChild(newDoc);
+                docCount++;
+                updateDocRemoveButtons();
+            });
+        }
+
+        if (docsContainer) {
+            docsContainer.addEventListener('click', function(e) {
+                if (e.target.classList.contains('remove-doc') || e.target.closest('.remove-doc')) {
+                    const btn = e.target.classList.contains('remove-doc') ? e.target : e.target.closest('.remove-doc');
+                    const docItem = btn.closest('.doc-item');
+                    docItem.remove();
+                    updateDocNumbers();
+                    updateDocRemoveButtons();
+                }
+            });
+        }
+
+        function updateDocNumbers() {
+            const items = docsContainer.querySelectorAll('.doc-item');
+            items.forEach((item, index) => {
+                item.querySelector('strong').textContent = `Doc #${index + 1}`;
+            });
+        }
+
+        function updateDocRemoveButtons() {
+            const items = docsContainer.querySelectorAll('.doc-item');
+            const removeButtons = docsContainer.querySelectorAll('.remove-doc');
+            
+            if (items.length === 1) {
+                removeButtons.forEach(btn => btn.style.display = 'none');
+            } else {
+                removeButtons.forEach(btn => btn.style.display = 'inline-block');
+            }
+        }
+
+        // ===== IMAGES MANAGEMENT =====
+        const imagesContainer = document.querySelector('.imagesContainer');
+        // Set initial count based on existing items
+        let imageCount = imagesContainer.querySelectorAll('.image-item').length;
+
+        const addImageBtn = document.querySelector('.addImageBtn');
+        if (addImageBtn) {
+            addImageBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const newImage = document.createElement('div');
+                newImage.className = 'image-item card mb-3 p-3';
+                newImage.setAttribute('data-index', imageCount);
+                newImage.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <strong>Image #${imageCount + 1}</strong>
+                        <button type="button" class="btn btn-sm btn-danger remove-image">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label for="image_file_name_${imageCount}">File Name</label>
+                            <input type="text" class="form-control image-file-name" name="image_file_name_${imageCount}" id="image_file_name_${imageCount}">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="image_type_${imageCount}">Type</label>
+                            <select class="form-control image-type" name="image_type_${imageCount}" id="image_type_${imageCount}">
+                                <option value="">---------</option>
+                                {% for type in image_types %}<option value="{{ type.id }}">{{ type }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="image_scale_${imageCount}" class="mt-2">Scale</label>
+                            <select class="form-control image-scale" name="image_scale_${imageCount}" id="image_scale_${imageCount}">
+                                <option value="">---------</option>
+                                {% for scale in image_scales %}<option value="{{ scale.id }}">{{ scale }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="image_acquisition_date_${imageCount}" class="mt-2">Acquisition Date</label>
+                            <input type="date" class="form-control image-acquisition-date" name="image_acquisition_date_${imageCount}" id="image_acquisition_date_${imageCount}">
+                        </div>
+                        <div class="col-md-12">
+                            <label for="image_desc_${imageCount}" class="mt-2">Description</label>
+                            <textarea class="form-control image-desc" name="image_desc_${imageCount}" id="image_desc_${imageCount}" rows="2"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="image_format_${imageCount}" class="mt-2">Format</label>
+                            <input type="text" class="form-control image-format" name="image_format_${imageCount}" id="image_format_${imageCount}">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="image_projection_${imageCount}" class="mt-2">Projection</label>
+                            <input type="text" class="form-control image-projection" name="image_projection_${imageCount}" id="image_projection_${imageCount}">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="image_spatial_resolution_${imageCount}" class="mt-2">Spatial Resolution</label>
+                            <input type="text" class="form-control image-spatial-resolution" name="image_spatial_resolution_${imageCount}" id="image_spatial_resolution_${imageCount}">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="image_author_${imageCount}" class="mt-2">Author</label>
+                            <input type="text" class="form-control image-author" name="image_author_${imageCount}" id="image_author_${imageCount}">
+                        </div>
+                        <div class="col-md-12">
+                            <div class="mt-2">
+                                <div class="btn-group w-100" role="group">
+                                    <input type="radio" class="btn-check image-upload-type" name="image_upload_type_${imageCount}" id="image_url_${imageCount}" value="url" checked>
+                                    <label class="btn btn-outline-primary btn-sm" for="image_url_${imageCount}"><i class="fas fa-link"></i> URL</label>
+                                    <input type="radio" class="btn-check image-upload-type" name="image_upload_type_${imageCount}" id="image_upload_${imageCount}" value="upload">
+                                    <label class="btn btn-outline-primary btn-sm" for="image_upload_${imageCount}"><i class="fas fa-file-upload"></i> Upload</label>
+                                </div>
+                            </div>
+                            <div class="image-source-url-input mt-2">
+                                <label for="image_source_url_${imageCount}">Source URL</label>
+                                <input type="url" class="form-control image-source-url" name="image_source_url_${imageCount}" id="image_source_url_${imageCount}">
+                            </div>
+                            <div class="image-source-upload-input mt-2" style="display:none;">
+                                <label for="image_file_${imageCount}">Upload File</label>
+                                <input type="file" class="form-control image-source-file" name="image_file_${imageCount}" id="image_file_${imageCount}" accept="image/*">
+                            </div>
+                        </div>
+                        <div class="col-md-12">
+                            <label for="image_key_words_${imageCount}" class="mt-2">Key Words</label>
+                            <input type="text" class="form-control image-key-words" name="image_key_words_${imageCount}" id="image_key_words_${imageCount}">
+                        </div>
+                    </div>
+                `;
+                imagesContainer.appendChild(newImage);
+                imageCount++;
+                updateImageRemoveButtons();
+            });
+        }
+
+        if (imagesContainer) {
+            imagesContainer.addEventListener('click', function(e) {
+                if (e.target.classList.contains('remove-image') || e.target.closest('.remove-image')) {
+                    const btn = e.target.classList.contains('remove-image') ? e.target : e.target.closest('.remove-image');
+                    const imageItem = btn.closest('.image-item');
+                    imageItem.remove();
+                    updateImageNumbers();
+                    updateImageRemoveButtons();
+                }
+            });
+            // Toggle between URL and Upload for images
+            imagesContainer.addEventListener('change', function(e) {
+                if (e.target.classList.contains('image-upload-type')) {
+                    const imageItem = e.target.closest('.image-item');
+                    const urlInput = imageItem.querySelector('.image-source-url-input');
+                    const uploadInput = imageItem.querySelector('.image-source-upload-input');
+                    const urlField = urlInput ? urlInput.querySelector('input[type="url"]') : null;
+                    const fileField = uploadInput ? uploadInput.querySelector('input[type="file"]') : null;
+
+                    if (e.target.value === 'url') {
+                        if (urlInput) urlInput.style.display = 'block';
+                        if (uploadInput) uploadInput.style.display = 'none';
+                        // Disable file field when hidden, enable URL field when visible
+                        if (fileField) {
+                            fileField.disabled = true;
+                            fileField.removeAttribute('required');
+                            fileField.removeAttribute('aria-required');
+                        }
+                        if (urlField) {
+                            urlField.disabled = false;
+                            urlField.removeAttribute('required');
+                            urlField.removeAttribute('aria-required');
+                            // Restore original type if it was changed
+                            if (urlField.hasAttribute('data-original-type')) {
+                                urlField.type = urlField.getAttribute('data-original-type');
+                                urlField.removeAttribute('data-original-type');
+                            }
+                        }
+                    } else {
+                        if (urlInput) urlInput.style.display = 'none';
+                        if (uploadInput) uploadInput.style.display = 'block';
+                        // Disable URL field when hidden, enable file field when visible
+                        if (urlField) {
+                            urlField.disabled = true;
+                            urlField.removeAttribute('required');
+                            urlField.removeAttribute('aria-required');
+                            // Change type to text to avoid URL validation when hidden
+                            if (urlField.type === 'url' && !urlField.hasAttribute('data-original-type')) {
+                                urlField.setAttribute('data-original-type', 'url');
+                                urlField.type = 'text';
+                            }
+                        }
+                        if (fileField) {
+                            fileField.disabled = false;
+                            fileField.removeAttribute('required');
+                            fileField.removeAttribute('aria-required');
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateImageNumbers() {
+            const items = imagesContainer.querySelectorAll('.image-item');
+            items.forEach((item, index) => {
+                item.querySelector('strong').textContent = `Image #${index + 1}`;
+            });
+        }
+
+        function updateImageRemoveButtons() {
+            const items = imagesContainer.querySelectorAll('.image-item');
+            const removeButtons = imagesContainer.querySelectorAll('.remove-image');
+            
+            if (items.length === 1) {
+                removeButtons.forEach(btn => btn.style.display = 'none');
+            } else {
+                removeButtons.forEach(btn => btn.style.display = 'inline-block');
+            }
+        }
+    });
+</script>
+<!-- Modal Upload Shapefile con mappa -->
+<div class="modal fade" id="uploadShapefileModal" tabindex="-1" aria-labelledby="uploadShapefileLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content shadow">
+            <div class="modal-header">
+                <h5 class="modal-title" id="uploadShapefileLabel">Carica uno shapefile</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+            </div>
+            <div class="modal-body">
+                <input type="file" name="shapefile" id="shapefileInput" accept=".zip" class="form-control mb-3">
+                <small>Carica un file .zip contenente .shp, .shx e .dbf</small>
+                <div id="shapefileMap" style="height: 400px; border: 1px solid #ccc; margin-top: 15px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="acceptShapefileArea">Visualizza Shape</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Mappa -->
+<div class="modal fade" id="drawMapModal" tabindex="-1" aria-labelledby="drawMapLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content shadow">
+            <div class="modal-header">
+                <h5 class="modal-title" id="drawMapLabel">Disegna l’area sulla mappa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+            </div>
+            <div class="modal-body">
+                <div id="map" style="height: 500px; border: 1px solid #ccc;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Map modal logic
+    const mapModal = document.getElementById('drawMapModal');
+    let mapInitialized = false;
+    const latField = document.querySelector('[name="lat"]');
+    const lonField = document.querySelector('[name="lon"]');
+
+    mapModal.addEventListener('shown.bs.modal', () => {
+        if (!mapInitialized) {
+            const map = L.map('map').setView([43.7696, 11.2558], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+            map.invalidateSize();
+
+            const drawnItems = new L.FeatureGroup();
+            map.addLayer(drawnItems);
+
+            const drawControl = new L.Control.Draw({
+                draw: {
+                    polygon: true,
+                    polyline: false,
+                    rectangle: true,
+                    circle: false,
+                    marker: false,
+                    circlemarker: false
+                },
+                edit: {featureGroup: drawnItems}
+            });
+            map.addControl(drawControl);
+
+            map.on(L.Draw.Event.CREATED, function (e) {
+                const layer = e.layer;
+                drawnItems.clearLayers();
+                drawnItems.addLayer(layer);
+
+                const geojson = layer.toGeoJSON();
+                const coordinates = geojson.geometry.coordinates[0];
+                const tupleString = coordinates.map(coord => `(${coord[0].toFixed(6)},${coord[1].toFixed(6)})`).join(',');
+                const formatted = `(${tupleString})`;
+
+                const geometryInput = document.querySelector('[name="geometry"]');
+                if (geometryInput) geometryInput.value = formatted;
+
+                // Calcolo del centroide
+                const lats = coordinates.map(c => c[1]);
+                const lons = coordinates.map(c => c[0]);
+                const centroidLat = lats.reduce((a, b) => a + b) / lats.length;
+                const centroidLon = lons.reduce((a, b) => a + b) / lons.length;
+
+                // Inserimento del centroide nei campi lat e lon
+                if (latField && lonField) {
+                    latField.value = centroidLat.toFixed(6);
+                    lonField.value = centroidLon.toFixed(6);
+                }
+            });
+
+            mapInitialized = true;
+        }
+    });
+
+    // Shapefile modal logic
+    const shapefileInput = document.getElementById('shapefileInput');
+    const previewButton = document.getElementById('acceptShapefileArea');
+    const geometryField = document.getElementById('geometry');
+    let shpMap;
+
+    document.getElementById('uploadShapefileModal').addEventListener('shown.bs.modal', () => {
+        if (!shpMap) {
+            shpMap = L.map('shapefileMap').setView([43.7696, 11.2558], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap'
+            }).addTo(shpMap);
+            shpMap.invalidateSize();
+        }
+    });
+
+    previewButton.addEventListener('click', () => {
+        const file = shapefileInput.files[0];
+        if (!file) return alert('Carica un file .zip');
+
+        const formData = new FormData();
+        formData.append('shapefile', file);
+
+        fetch('/api/preview-shapefile/', {
+            method: 'POST',
+            body: formData
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) return alert(data.error);
+
+                geometryField.value = data.geometry;
+
+                const coords = data.geometry.match(/\((-?\d+\.\d+),(-?\d+\.\d+)\)/g)
+                    .map(c => c.replace(/[()]/g, '').split(',').map(Number));
+
+                // Calcola il centroide
+                const lats = coords.map(c => c[1]);
+                const lons = coords.map(c => c[0]);
+                const centroidLat = lats.reduce((a, b) => a + b) / lats.length;
+                const centroidLon = lons.reduce((a, b) => a + b) / lons.length;
+
+                // Inserisci le coordinate nel campo lat/lon
+                if (latField && lonField) {
+                    latField.value = centroidLat.toFixed(6);
+                    lonField.value = centroidLon.toFixed(6);
+                }
+
+                const polygon = L.polygon(coords.map(c => [c[1], c[0]])).addTo(shpMap);
+                shpMap.fitBounds(polygon.getBounds());
+
+                const modalEl = document.getElementById('uploadShapefileModal');
+                const modal = new bootstrap.Modal(modalEl);
+                modal.hide();
+            })
+            .catch(err => alert('Errore: ' + err));
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,1189 @@
+{% extends "frontend/base.html" %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'frontend/public_research.css' %}">
+
+<style>
+  .detail-tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 2px solid #e0e0e0; padding-bottom: 0; }
+  .detail-tab { flex: 1; min-width: 100px; padding: 0.75rem; background: #f8f9fa; border: none; border-radius: 8px 8px 0 0; cursor: pointer; transition: all 0.3s; font-weight: 500; color: #6c757d; font-size: 0.9rem; }
+  .detail-tab:hover { background: #e9ecef; }
+  .detail-tab.active { background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); color: white; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(44, 62, 80, 0.3); }
+  .tab-content { display: none; animation: fadeIn 0.3s; }
+  .tab-content.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+</style>
+
+<div class="container mt-4 mb-4">
+  <div class="research-card mb-4">
+    <div class="research-card-header d-flex justify-content-between align-items-start flex-wrap">
+      <div>
+        <h2 class="mb-1"><i class="fas fa-landmark"></i> {{ site.site_name|default:"Site #"|add:site.id }}</h2>
+        {% if site.locality_name %}
+          <div class="text-muted">{{ site.locality_name }}</div>
+        {% endif %}
+      </div>
+      {% if user.is_authenticated %}
+        <div class="btn-group">
+          <a href="{% url 'site_update' site.id %}" class="btn btn-warning-modern btn-modern btn-sm"><i class="fas fa-edit"></i> Update</a>
+          <a href="{% url 'site_delete' site.id %}" class="btn btn-danger-modern btn-modern btn-sm"><i class="fas fa-trash"></i> Delete</a>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Manage Relations Section -->
+    {% if user.is_authenticated %}
+    <div class="mt-3 p-3" style="background-color: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
+      <h5 class="mb-3"><i class="fas fa-link"></i> Manage Relations</h5>
+      <div class="row">
+        <div class="col-md-6 mb-2">
+          <a href="{% url 'evidence_create' %}?site_id={{ site.id }}" class="btn btn-block" style="background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); color: white; border: none; padding: 12px; border-radius: 8px; transition: all 0.3s;">
+            <i class="fas fa-plus-circle"></i> Create Evidence
+            <small class="d-block mt-1" style="font-size: 0.85em; opacity: 0.9;">Create new evidence</small>
+          </a>
+        </div>
+        <div class="col-md-6 mb-2">
+          <button type="button" class="btn btn-block" data-toggle="modal" data-target="#addSiteEvidenceModal" style="background: white; color: #28a745; border: 2px solid #28a745; padding: 12px; border-radius: 8px; transition: all 0.3s;">
+            <i class="fas fa-link"></i> Link Evidence
+            <small class="d-block mt-1" style="font-size: 0.85em;">Link existing evidence</small>
+          </button>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    
+    <!-- Tabs Navigation -->
+    <div class="detail-tabs">
+      <button class="detail-tab active" onclick="showTab(event, 'general')"><i class="fas fa-info-circle"></i> General</button>
+      <button class="detail-tab" onclick="showTab(event, 'positioning')"><i class="fas fa-map-pin"></i> Positioning</button>
+      <button class="detail-tab" onclick="showTab(event, 'landscape')"><i class="fas fa-mountain"></i> Landscape</button>
+      <button class="detail-tab" onclick="showTab(event, 'interpretation')"><i class="fas fa-lightbulb"></i> Interpretation</button>
+      <button class="detail-tab" onclick="showTab(event, 'relationship')"><i class="fas fa-tree"></i> Site-environment relationship</button>
+      <button class="detail-tab" onclick="showTab(event, 'research')"><i class="fas fa-book"></i> Research</button>
+      <button class="detail-tab" onclick="showTab(event, 'documentation')"><i class="fas fa-file-alt"></i> Documentation</button>
+      <button class="detail-tab" onclick="showTab(event, 'notes')"><i class="fas fa-sticky-note"></i> Notes</button>
+    </div>
+    
+    <div class="research-card-body">
+      
+      <!-- General Tab -->
+      <div id="general" class="tab-content active">
+        <!-- Site Name Section -->
+        <div class="mb-4">
+          <div class="detail-row">
+            {% if site.site_name %}
+              <div class="detail-item">
+                <strong>Nome del sito*</strong>
+                <div class="mt-1">{{ site.site_name }}</div>
+              </div>
+            {% else %}
+              <div class="detail-item text-muted">
+                <strong>Nome del sito*</strong>
+                <div class="mt-1">Site #{{ site.id }}</div>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+        
+        <!-- Other Place Names Section -->
+        <div class="mb-4">
+          <h6 class="text-muted mb-2">Altri toponimi</h6>
+          <div class="detail-row">
+            {% if site_toponymy and site_toponymy.ancient_place_name %}
+              <div class="detail-item">
+                <strong>Antichi</strong>
+                <div class="mt-1">{{ site_toponymy.ancient_place_name }}</div>
+              </div>
+            {% else %}
+              <div class="detail-item text-muted">
+                <strong>Antichi</strong>
+                <div class="mt-1">—</div>
+              </div>
+            {% endif %}
+            
+            {% if site_toponymy and site_toponymy.contemporary_place_name %}
+              <div class="detail-item">
+                <strong>Contemporanei</strong>
+                <div class="mt-1">{{ site_toponymy.contemporary_place_name }}</div>
+              </div>
+            {% else %}
+              <div class="detail-item text-muted">
+                <strong>Contemporanei</strong>
+                <div class="mt-1">—</div>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+        
+        <!-- Description Section -->
+        <div class="mb-4">
+          <div class="detail-row">
+            {% if site.description %}
+              <div class="detail-item">
+                <strong>Descrizione</strong>
+                <div class="mt-2">{{ site.description|linebreaksbr }}</div>
+              </div>
+            {% else %}
+              <div class="detail-item text-muted">
+                <strong>Descrizione</strong>
+                <div class="mt-2">—</div>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+        
+        <!-- Location Details Section -->
+        <div class="mb-4">
+          <h6 class="text-muted mb-2">Location Details</h6>
+          <div class="detail-row">
+            {% if site.id_region %}
+              <div class="detail-item">
+                <strong>Regione</strong>
+                <div class="mt-1">{{ site.id_region }}</div>
+              </div>
+            {% else %}
+              <div class="detail-item text-muted">
+                <strong>Regione</strong>
+                <div class="mt-1">—</div>
+              </div>
+            {% endif %}
+            
+            {% if site.id_province %}
+              <div class="detail-item">
+                <strong>Provincia</strong>
+                <div class="mt-1">{{ site.id_province }}</div>
+              </div>
+            {% else %}
+              <div class="detail-item text-muted">
+                <strong>Provincia</strong>
+                <div class="mt-1">—</div>
+              </div>
+            {% endif %}
+            
+            {% if site.id_municipality %}
+              <div class="detail-item">
+                <strong>Comune</strong>
+                <div class="mt-1">{{ site.id_municipality }}</div>
+              </div>
+            {% else %}
+              <div class="detail-item text-muted">
+                <strong>Comune</strong>
+                <div class="mt-1">—</div>
+              </div>
+            {% endif %}
+            
+            {% if site.locality_name %}
+              <div class="detail-item">
+                <strong>Località</strong>
+                <div class="mt-1">{{ site.locality_name }}</div>
+              </div>
+            {% else %}
+              <div class="detail-item text-muted">
+                <strong>Località</strong>
+                <div class="mt-1">—</div>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+        
+        <!-- Coordinates and Elevation Section -->
+        <div class="mb-4">
+          <h6 class="text-muted mb-2">Coordinates</h6>
+          <div class="detail-row">
+            {% if site.lat %}
+              <div class="detail-item">
+                <strong>Lat</strong>
+                <div class="mt-1">{{ site.lat }}</div>
+              </div>
+            {% else %}
+              <div class="detail-item text-muted">
+                <strong>Lat</strong>
+                <div class="mt-1">—</div>
+              </div>
+            {% endif %}
+            
+            {% if site.lon %}
+              <div class="detail-item">
+                <strong>Lon</strong>
+                <div class="mt-1">{{ site.lon }}</div>
+              </div>
+            {% else %}
+              <div class="detail-item text-muted">
+                <strong>Lon</strong>
+                <div class="mt-1">—</div>
+              </div>
+            {% endif %}
+            
+            {% if site.elevation %}
+              <div class="detail-item">
+                <strong>Quota</strong>
+                <div class="mt-1">{{ site.elevation }} m</div>
+              </div>
+            {% else %}
+              <div class="detail-item text-muted">
+                <strong>Quota</strong>
+                <div class="mt-1">—</div>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+        
+        <!-- Location Map -->
+        {% if site.lat and site.lon %}
+        <div class="mt-3">
+          <h6><i class="fas fa-map"></i> Location Map</h6>
+          <div id="site-map" data-lat="{{ site.lat }}" data-lon="{{ site.lon }}" style="height: 300px; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0;"></div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Positioning Tab -->
+      <div id="positioning" class="tab-content">
+        <div class="row mb-4">
+          <!-- Left Column - Positioning Mode -->
+          <div class="col-md-4 mb-3">
+            <fieldset class="border rounded p-3" style="background: #f8f9fa; height: 100%;">
+              <legend class="float-none w-auto px-2 small text-muted"><strong>Modalità di posizionamento</strong></legend>
+              {% if site.id_positioning_mode %}
+                <div class="detail-item">
+                  <div class="mt-1">{{ site.id_positioning_mode }}</div>
+                </div>
+              {% else %}
+                <div class="detail-item text-muted">
+                  <div class="mt-1">—</div>
+                </div>
+              {% endif %}
+            </fieldset>
+          </div>
+          
+          <!-- Middle Column - Cartographic Base -->
+          <div class="col-md-4 mb-3">
+            <fieldset class="border rounded p-3" style="background: #f8f9fa; height: 100%;">
+              <legend class="float-none w-auto px-2 small text-muted"><strong>Base cartografica</strong></legend>
+              {% if site.id_base_map %}
+                <div class="detail-item">
+                  <div class="mt-1">{{ site.id_base_map }}</div>
+                </div>
+              {% else %}
+                <div class="detail-item text-muted">
+                  <div class="mt-1">—</div>
+                </div>
+              {% endif %}
+            </fieldset>
+          </div>
+          
+          <!-- Right Column - Positioning Quality -->
+          <div class="col-md-4 mb-3">
+            <fieldset class="border rounded p-3" style="background: #f8f9fa; height: 100%;">
+              <legend class="float-none w-auto px-2 small text-muted"><strong>Qualità del posizionamento</strong></legend>
+              {% if site.id_positional_accuracy %}
+                <div class="detail-item">
+                  <div class="mt-1">{{ site.id_positional_accuracy }}</div>
+                </div>
+              {% else %}
+                <div class="detail-item text-muted">
+                  <div class="mt-1">—</div>
+                </div>
+              {% endif %}
+            </fieldset>
+          </div>
+        </div>
+        
+      </div>
+
+      <!-- Landscape Tab -->
+      <div id="landscape" class="tab-content">
+        <h6 class="mb-3"><i class="fas fa-mountain"></i> Landscape Characteristics</h6>
+        
+        <div class="row">
+          <div class="col-md-6 mb-4">
+            <fieldset class="border rounded p-3" style="background: #f8f9fa;">
+              <legend class="float-none w-auto px-2 small text-muted">Physiography</legend>
+              {% if site.id_physiography %}
+                <div class="detail-item">
+                  <strong>Fisiografia</strong>
+                  <div class="mt-1">{{ site.id_physiography }}</div>
+                </div>
+              {% else %}
+                <div class="detail-item text-muted">
+                  <strong>Fisiografia</strong>
+                  <div class="mt-1">—</div>
+                </div>
+              {% endif %}
+            </fieldset>
+          </div>
+          
+          <div class="col-md-6 mb-4">
+            <fieldset class="border rounded p-3" style="background: #f8f9fa;">
+              <legend class="float-none w-auto px-2 small text-muted">Topographic References</legend>
+              {% if site.additional_topography %}
+                <div class="detail-item">
+                  <strong>Riferimenti topografici</strong>
+                  <div class="mt-1" style="white-space: pre-wrap;">{{ site.additional_topography|linebreaksbr }}</div>
+                </div>
+              {% else %}
+                <div class="detail-item text-muted">
+                  <strong>Riferimenti topografici</strong>
+                  <div class="mt-1">—</div>
+                </div>
+              {% endif %}
+            </fieldset>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interpretation Tab -->
+      <div id="interpretation" class="tab-content">
+        {% if interpretation %}
+          <h6 class="mb-3"><i class="fas fa-lightbulb"></i> Site Interpretation</h6>
+          
+          <!-- Classification Section -->
+          <div class="mb-4">
+            <h6 class="text-muted mb-2">Classification</h6>
+            <div class="detail-row">
+              {% if interpretation.id_functional_class %}
+                <div class="detail-item">
+                  <strong>Classe Funzionale*</strong> 
+                  <div class="mt-1">{{ interpretation.id_functional_class }}</div>
+                </div>
+              {% else %}
+                <div class="detail-item text-muted">
+                  <strong>Classe Funzionale*</strong> 
+                  <div class="mt-1">—</div>
+                </div>
+              {% endif %}
+              
+              {% if interpretation.id_typology %}
+                <div class="detail-item">
+                  <strong>Tipologia</strong> 
+                  <div class="mt-1">{{ interpretation.id_typology }}</div>
+                </div>
+              {% else %}
+                <div class="detail-item text-muted">
+                  <strong>Tipologia</strong> 
+                  <div class="mt-1">—</div>
+                </div>
+              {% endif %}
+              
+              {% if interpretation.id_typology_detail %}
+                <div class="detail-item">
+                  <strong>Sottotipologia</strong> 
+                  <div class="mt-1">{{ interpretation.id_typology_detail }}</div>
+                </div>
+              {% else %}
+                <div class="detail-item text-muted">
+                  <strong>Sottotipologia</strong> 
+                  <div class="mt-1">—</div>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+          
+          <!-- Chronology Section -->
+          <div class="mb-4">
+            <h6 class="text-muted mb-2">Chronology</h6>
+            <div class="detail-row">
+              {% if interpretation.id_chronology %}
+                <div class="detail-item">
+                  <strong>Cronologia*</strong> 
+                  <div class="mt-1">{{ interpretation.id_chronology }}</div>
+                </div>
+              {% else %}
+                <div class="detail-item text-muted">
+                  <strong>Cronologia*</strong> 
+                  <div class="mt-1">—</div>
+                </div>
+              {% endif %}
+              
+              {% if interpretation.chronology_certainty_level %}
+                <div class="detail-item">
+                  <strong>Grado di certezza della cronologia proposta</strong> 
+                  <div class="mt-1">
+                    {% if interpretation.chronology_certainty_level == 1 %}
+                      Incerta
+                    {% elif interpretation.chronology_certainty_level == 2 %}
+                      Probabile
+                    {% elif interpretation.chronology_certainty_level == 3 %}
+                      Certa
+                    {% else %}
+                      {{ interpretation.chronology_certainty_level }}
+                    {% endif %}
+                  </div>
+                </div>
+              {% else %}
+                <div class="detail-item text-muted">
+                  <strong>Grado di certezza della cronologia proposta</strong> 
+                  <div class="mt-1">—</div>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        {% else %}
+          <p class="text-muted">No interpretation data recorded.</p>
+        {% endif %}
+      </div>
+
+      <!-- Site-environment Relationship Tab -->
+      <div id="relationship" class="tab-content">
+        <h6 class="mb-3"><i class="fas fa-tree"></i> Rapporto sito-ambiente</h6>
+        
+        <!-- Instruction Box -->
+        <div class="mb-3" style="background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); color: white; padding: 12px 16px; border-radius: 8px; position: relative;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-chevron-down" style="font-size: 1.2rem;"></i>
+            <span style="font-weight: 500;">Prova a descriverlo rispondendo a domande come queste</span>
+          </div>
+        </div>
+        
+        <!-- Question Box -->
+        <div class="mb-4" style="background: #f0f7f0; border-left: 4px solid #28a745; padding: 16px 20px; border-radius: 8px;">
+          <div style="color: #155724; font-style: italic; line-height: 1.8;">
+            <div class="mb-3">
+              <strong>1.</strong> Che tipo di relazione ha/aveva il sito con l'ambiente circostante? E con altri 'elementi' culturali e/o altri siti? Perché sorge in questa determinata posizione?
+            </div>
+            <div class="mb-3">
+              <strong>2.</strong> Che tipo di risorse sono presenti vicino al sito? Come vengono/venivano sfruttate?
+            </div>
+            <div>
+              <strong>3.</strong> In che modo il suolo, la morfologia, l'altimetria, l'esposizione e le risorse naturali ne hanno influenzato l'esistenza e le scelte antropiche?
+            </div>
+          </div>
+        </div>
+        
+        <!-- Content Display -->
+        <div class="detail-row">
+          {% if site.site_environment_relationship %}
+            <div class="detail-item">
+              <strong><i class="fas fa-tree"></i> Site-Environment Relationship</strong>
+              <div class="mt-2" style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e0e0e0; min-height: 200px; white-space: pre-wrap;">{{ site.site_environment_relationship|linebreaksbr }}</div>
+            </div>
+          {% else %}
+            <div class="detail-item text-muted">
+              <strong><i class="fas fa-tree"></i> Site-Environment Relationship</strong>
+              <div class="mt-2" style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e0e0e0; min-height: 200px; color: #999; font-style: italic;">
+                No site-environment relationship information recorded.
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Research Tab -->
+      <div id="research" class="tab-content">
+        <h6 class="mb-3"><i class="fas fa-book"></i> Research History</h6>
+        
+        <!-- First Discovery Method -->
+        <div class="mb-4">
+          <div class="detail-row">
+            {% if site.id_first_discovery_method %}
+              <div class="detail-item">
+                <strong>Modalità di rinvenimento (prima scoperta)</strong>
+                <div class="mt-1">{{ site.id_first_discovery_method }}</div>
+              </div>
+            {% else %}
+              <div class="detail-item text-muted">
+                <strong>Modalità di rinvenimento (prima scoperta)</strong>
+                <div class="mt-1">—</div>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+        
+        <!-- Project Information -->
+        {% if site_investigation and site_investigation.id_investigation %}
+          <div class="mb-4">
+            <h6 class="text-muted mb-2">Project Information</h6>
+            <div class="detail-row">
+              {% if site_investigation.id_investigation.project_name %}
+                <div class="detail-item">
+                  <strong>Nome del progetto</strong>
+                  <div class="mt-1">{{ site_investigation.id_investigation.project_name }}</div>
+                </div>
+              {% else %}
+                <div class="detail-item text-muted">
+                  <strong>Nome del progetto</strong>
+                  <div class="mt-1">—</div>
+                </div>
+              {% endif %}
+              
+              {% if site_investigation.id_investigation.id_investigation_type %}
+                <div class="detail-item">
+                  <strong>Tipo di indagine</strong>
+                  <div class="mt-1">{{ site_investigation.id_investigation.id_investigation_type }}</div>
+                </div>
+              {% else %}
+                <div class="detail-item text-muted">
+                  <strong>Tipo di indagine</strong>
+                  <div class="mt-1">—</div>
+                </div>
+              {% endif %}
+              
+              {% if site_investigation.id_investigation.period %}
+                <div class="detail-item">
+                  <strong>Periodo</strong>
+                  <div class="mt-1">{{ site_investigation.id_investigation.period }}</div>
+                </div>
+              {% else %}
+                <div class="detail-item text-muted">
+                  <strong>Periodo</strong>
+                  <div class="mt-1">—</div>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        {% else %}
+          <div class="mb-4">
+            <h6 class="text-muted mb-2">Project Information</h6>
+            <div class="detail-row">
+              <div class="detail-item text-muted">
+                <strong>Nome del progetto</strong>
+                <div class="mt-1">—</div>
+              </div>
+              <div class="detail-item text-muted">
+                <strong>Tipo di indagine</strong>
+                <div class="mt-1">—</div>
+              </div>
+              <div class="detail-item text-muted">
+                <strong>Periodo</strong>
+                <div class="mt-1">—</div>
+              </div>
+            </div>
+          </div>
+        {% endif %}
+        
+        <!-- Linked Researches -->
+        {% if site_researches %}
+          <hr class="my-4">
+          <h6 class="mb-3"><i class="fas fa-link"></i> Linked Researches</h6>
+          <ul class="list-group list-group-flush">
+            {% for research in site_researches %}
+              <li class="list-group-item"><a href="{% url 'public-research-detail' research.id %}" class="text-decoration-none">{{ research.title|default:"Research #"|add:research.id }}</a></li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+
+      <!-- Documentation Tab -->
+      <div id="documentation" class="tab-content">
+        <!-- Bibliographies Section -->
+        {% if site_bibliographies %}
+          <div class="mb-4">
+            <h6 class="text-muted mb-3">Bibliografia ({{ site_bibliographies|length }})</h6>
+            {% for biblio in site_bibliographies %}
+              <div class="mb-3" style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px;">
+                <div class="detail-row">
+                  {% if biblio.title %}
+                    <div class="detail-item">
+                      <strong>TITOLO</strong>
+                      <div class="mt-1">{{ biblio.title }}</div>
+                    </div>
+                  {% else %}
+                    <div class="detail-item text-muted">
+                      <strong>TITOLO</strong>
+                      <div class="mt-1">—</div>
+                    </div>
+                  {% endif %}
+                  
+                  {% if biblio.author %}
+                    <div class="detail-item">
+                      <strong>AUTORE</strong>
+                      <div class="mt-1">{{ biblio.author }}</div>
+                    </div>
+                  {% else %}
+                    <div class="detail-item text-muted">
+                      <strong>AUTORE</strong>
+                      <div class="mt-1">—</div>
+                    </div>
+                  {% endif %}
+                  
+                  {% if biblio.year %}
+                    <div class="detail-item">
+                      <strong>ANNO</strong>
+                      <div class="mt-1">{{ biblio.year }}</div>
+                    </div>
+                  {% else %}
+                    <div class="detail-item text-muted">
+                      <strong>ANNO</strong>
+                      <div class="mt-1">—</div>
+                    </div>
+                  {% endif %}
+                  
+                  {% if biblio.doi %}
+                    <div class="detail-item">
+                      <strong>DOI</strong>
+                      <div class="mt-1">{{ biblio.doi }}</div>
+                    </div>
+                  {% else %}
+                    <div class="detail-item text-muted">
+                      <strong>DOI</strong>
+                      <div class="mt-1">—</div>
+                    </div>
+                  {% endif %}
+                  
+                  {% if biblio.tipo %}
+                    <div class="detail-item">
+                      <strong>TIPO</strong>
+                      <div class="mt-1">{{ biblio.tipo }}</div>
+                    </div>
+                  {% else %}
+                    <div class="detail-item text-muted">
+                      <strong>TIPO</strong>
+                      <div class="mt-1">—</div>
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <!-- Sources Section -->
+        {% if site_sources %}
+          <div class="mb-4">
+            <h6 class="text-muted mb-3">Fonti ({{ site_sources|length }})</h6>
+            {% for source in site_sources %}
+              <div class="mb-3" style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px;">
+                <div class="detail-row">
+                  {% if source.name %}
+                    <div class="detail-item">
+                      <strong>NOME</strong>
+                      <div class="mt-1">{{ source.name }}</div>
+                    </div>
+                  {% else %}
+                    <div class="detail-item text-muted">
+                      <strong>NOME</strong>
+                      <div class="mt-1">—</div>
+                    </div>
+                  {% endif %}
+                  
+                  {% if source.id_chronology %}
+                    <div class="detail-item">
+                      <strong>CRONOLOGIA</strong>
+                      <div class="mt-1">{{ source.id_chronology }}</div>
+                    </div>
+                  {% else %}
+                    <div class="detail-item text-muted">
+                      <strong>CRONOLOGIA</strong>
+                      <div class="mt-1">—</div>
+                    </div>
+                  {% endif %}
+                  
+                  {% if source.id_sources_typology %}
+                    <div class="detail-item">
+                      <strong>TIPO</strong>
+                      <div class="mt-1">{{ source.id_sources_typology }}</div>
+                    </div>
+                  {% else %}
+                    <div class="detail-item text-muted">
+                      <strong>TIPO</strong>
+                      <div class="mt-1">—</div>
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <!-- Related Documentation Section -->
+        {% if site_docs %}
+          <div class="mb-4">
+            <h6 class="text-muted mb-3">Altra documentazione ({{ site_docs|length }})</h6>
+            {% for doc in site_docs %}
+              <div class="mb-3" style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px;">
+                <div class="detail-row">
+                  {% if doc.name %}
+                    <div class="detail-item">
+                      <strong>NOME</strong>
+                      <div class="mt-1">{{ doc.name }}</div>
+                    </div>
+                  {% else %}
+                    <div class="detail-item text-muted">
+                      <strong>NOME</strong>
+                      <div class="mt-1">—</div>
+                    </div>
+                  {% endif %}
+                  
+                  {% if doc.author %}
+                    <div class="detail-item">
+                      <strong>AUTORE</strong>
+                      <div class="mt-1">{{ doc.author }}</div>
+                    </div>
+                  {% else %}
+                    <div class="detail-item text-muted">
+                      <strong>AUTORE</strong>
+                      <div class="mt-1">—</div>
+                    </div>
+                  {% endif %}
+                  
+                  {% if doc.year %}
+                    <div class="detail-item">
+                      <strong>ANNO</strong>
+                      <div class="mt-1">{{ doc.year }}</div>
+                    </div>
+                  {% else %}
+                    <div class="detail-item text-muted">
+                      <strong>ANNO</strong>
+                      <div class="mt-1">—</div>
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <!-- Images Section -->
+        {% if site_images %}
+          <div class="mb-4">
+            <h6 class="text-muted mb-3">Immagini ({{ site_images|length }})</h6>
+            {% for image in site_images %}
+              <div class="mb-3" style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px;">
+                <div class="detail-row">
+                  {% if image.file_name %}
+                    <div class="detail-item">
+                      <strong>File Name</strong>
+                      <div class="mt-1">{{ image.file_name }}</div>
+                    </div>
+                  {% else %}
+                    <div class="detail-item text-muted">
+                      <strong>File Name</strong>
+                      <div class="mt-1">—</div>
+                    </div>
+                  {% endif %}
+                  
+                  {% if image.image_type_obj %}
+                    <div class="detail-item">
+                      <strong>Type</strong>
+                      <div class="mt-1">{{ image.image_type_obj }}</div>
+                    </div>
+                  {% else %}
+                    <div class="detail-item text-muted">
+                      <strong>Type</strong>
+                      <div class="mt-1">—</div>
+                    </div>
+                  {% endif %}
+                  
+                  {% if image.image_scale_obj %}
+                    <div class="detail-item">
+                      <strong>Scale</strong>
+                      <div class="mt-1">{{ image.image_scale_obj }}</div>
+                    </div>
+                  {% else %}
+                    <div class="detail-item text-muted">
+                      <strong>Scale</strong>
+                      <div class="mt-1">—</div>
+                    </div>
+                  {% endif %}
+                  
+                  {% if image.acquisition_date %}
+                    <div class="detail-item">
+                      <strong>Acquisition Date</strong>
+                      <div class="mt-1">{{ image.acquisition_date }}</div>
+                    </div>
+                  {% else %}
+                    <div class="detail-item text-muted">
+                      <strong>Acquisition Date</strong>
+                      <div class="mt-1">—</div>
+                    </div>
+                  {% endif %}
+                  
+                  {% if image.desc_image %}
+                    <div class="detail-item">
+                      <strong>Description</strong>
+                      <div class="mt-1" style="white-space: pre-wrap;">{{ image.desc_image }}</div>
+                    </div>
+                  {% else %}
+                    <div class="detail-item text-muted">
+                      <strong>Description</strong>
+                      <div class="mt-1">—</div>
+                    </div>
+                  {% endif %}
+                  
+                  {% if image.format %}
+                    <div class="detail-item">
+                      <strong>Format</strong>
+                      <div class="mt-1">{{ image.format }}</div>
+                    </div>
+                  {% else %}
+                    <div class="detail-item text-muted">
+                      <strong>Format</strong>
+                      <div class="mt-1">—</div>
+                    </div>
+                  {% endif %}
+                  
+                  {% if image.projection %}
+                    <div class="detail-item">
+                      <strong>Projection</strong>
+                      <div class="mt-1">{{ image.projection }}</div>
+                    </div>
+                  {% else %}
+                    <div class="detail-item text-muted">
+                      <strong>Projection</strong>
+                      <div class="mt-1">—</div>
+                    </div>
+                  {% endif %}
+                  
+                  {% if image.spatial_resolution %}
+                    <div class="detail-item">
+                      <strong>Spatial Resolution</strong>
+                      <div class="mt-1">{{ image.spatial_resolution }}</div>
+                    </div>
+                  {% else %}
+                    <div class="detail-item text-muted">
+                      <strong>Spatial Resolution</strong>
+                      <div class="mt-1">—</div>
+                    </div>
+                  {% endif %}
+                  
+                  {% if image.author %}
+                    <div class="detail-item">
+                      <strong>Author</strong>
+                      <div class="mt-1">{{ image.author }}</div>
+                    </div>
+                  {% else %}
+                    <div class="detail-item text-muted">
+                      <strong>Author</strong>
+                      <div class="mt-1">—</div>
+                    </div>
+                  {% endif %}
+                  
+                  {% if image.source_url %}
+                    <div class="detail-item">
+                      <strong>Source URL</strong>
+                      <div class="mt-1">
+                        <a href="{{ image.source_url }}" target="_blank" rel="noopener">{{ image.source_url }}</a>
+                      </div>
+                    </div>
+                  {% else %}
+                    <div class="detail-item text-muted">
+                      <strong>Source URL</strong>
+                      <div class="mt-1">—</div>
+                    </div>
+                  {% endif %}
+                  
+                  {% if image.key_words %}
+                    <div class="detail-item">
+                      <strong>Key Words</strong>
+                      <div class="mt-1">{{ image.key_words }}</div>
+                    </div>
+                  {% else %}
+                    <div class="detail-item text-muted">
+                      <strong>Key Words</strong>
+                      <div class="mt-1">—</div>
+                    </div>
+                  {% endif %}
+                </div>
+                
+                <!-- Image Preview -->
+                {% if image.source_url %}
+                  <div class="mt-3">
+                    <img src="{{ image.source_url }}" alt="{{ image.desc_image|default:'Image' }}" class="img-fluid rounded" style="max-height: 300px; width: auto; object-fit: contain;">
+                  </div>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Notes Tab -->
+      <div id="notes" class="tab-content">
+        <div class="detail-row">
+          {% if site.notes %}
+            <div class="detail-item">
+              <strong><i class="fas fa-sticky-note"></i> Notes</strong>
+              <div class="mt-2">{{ site.notes|linebreaksbr }}</div>
+            </div>
+          {% else %}
+            <div class="detail-item text-muted">
+              <strong><i class="fas fa-sticky-note"></i> Notes</strong>
+              <div class="mt-2">No notes recorded.</div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="research-card mb-4">
+    <div class="section-header d-flex justify-content-between align-items-center">
+      <div>
+        <i class="fas fa-shovel"></i> Archaeological Evidences ({{ site_evidences|length }})
+      </div>
+    </div>
+    <div class="research-card-body">
+      {% if site_evidences %}
+        <ul class="list-group list-group-flush">
+          {% for evidence in site_evidences %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <div>
+                <a href="{% url 'evidence_detail' evidence.id %}" class="text-decoration-none">
+                  {% if evidence.evidence_name %}{{ evidence.evidence_name }}{% elif evidence.description %}{{ evidence.description|truncatewords:12 }}{% else %}Evidence #{{ evidence.id }}{% endif %}
+                </a>
+                {% if evidence.description %}
+                  <div class="text-muted small">{{ evidence.description|truncatewords:18 }}</div>
+                {% endif %}
+              </div>
+              {% if user.is_authenticated %}
+                <span class="btn-group">
+                  <a href="{% url 'evidence_update' evidence.id %}" class="btn btn-sm btn-outline-primary">Edit</a>
+                  <a href="{% url 'evidence_delete' evidence.id %}" class="btn btn-sm btn-outline-danger">Delete</a>
+                </span>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-muted mb-0">No evidence linked to this site yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Modal for Adding Related Evidence -->
+  <div class="modal fade" id="addSiteEvidenceModal" tabindex="-1" role="dialog" aria-labelledby="addSiteEvidenceModalLabel" aria-hidden="true">
+      <div class="modal-dialog" role="document">
+          <div class="modal-content">
+              <div class="modal-header">
+                  <h5 class="modal-title" id="addSiteEvidenceModalLabel">
+                      <i class="fas fa-link"></i> Link Existing Archaeological Evidence
+                  </h5>
+                  <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                      <span aria-hidden="true">&times;</span>
+                  </button>
+              </div>
+              <div class="modal-body">
+                  <div class="form-group">
+                      <label for="evidenceSelect"><strong>Select Archaeological Evidence</strong></label>
+                      <select class="form-control" id="evidenceSelect">
+                          <option value="">-- Choose evidence --</option>
+                      </select>
+                      <small class="form-text text-muted">Select archaeological evidence to link to this site</small>
+                  </div>
+              </div>
+              <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                  <button type="button" class="btn btn-primary-modern btn-modern" onclick="addSiteEvidenceRelation()">
+                      <i class="fas fa-save"></i> Save Relation
+                  </button>
+              </div>
+          </div>
+      </div>
+  </div>
+</div>
+
+<script>
+function toggleDetails(id) {
+  const content = document.getElementById(id);
+  const icon = document.getElementById(id + '-icon');
+  if (content.style.display === 'none') {
+    content.style.display = 'block';
+    icon.classList.remove('fa-chevron-down');
+    icon.classList.add('fa-chevron-up');
+  } else {
+    content.style.display = 'none';
+    icon.classList.remove('fa-chevron-up');
+    icon.classList.add('fa-chevron-down');
+  }
+}
+
+function initLeafletMap(divId) {
+  const el = document.getElementById(divId);
+  if (!el) return;
+  // If already initialized, just invalidate size
+  if (el._leaflet_map) {
+    setTimeout(() => el._leaflet_map.invalidateSize(true), 50);
+    return;
+  }
+  const lat = parseFloat(el.dataset.lat);
+  const lon = parseFloat(el.dataset.lon);
+  if (isNaN(lat) || isNaN(lon)) return;
+  const map = L.map(divId);
+  el._leaflet_map = map;
+  const marker = L.marker([lat, lon]).addTo(map);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+  map.setView([lat, lon], 13);
+  setTimeout(() => map.invalidateSize(true), 50);
+}
+
+function showTab(evt, tabName) {
+  const tabContents = document.querySelectorAll('.tab-content');
+  tabContents.forEach(tc => tc.classList.remove('active'));
+  
+  const tabButtons = document.querySelectorAll('.detail-tab');
+  tabButtons.forEach(tb => tb.classList.remove('active'));
+  
+  const tab = document.getElementById(tabName);
+  tab.classList.add('active');
+  evt.currentTarget.classList.add('active');
+
+  // Initialize or fix map when General tab becomes visible
+  if (tabName === 'general') {
+    setTimeout(() => {
+      initLeafletMap('site-map');
+    }, 100);
+  }
+}
+
+// Initialize map on page load since General is the default active tab
+document.addEventListener('DOMContentLoaded', () => {
+  const generalTab = document.getElementById('general');
+  if (generalTab && generalTab.classList.contains('active')) {
+    setTimeout(() => {
+      initLeafletMap('site-map');
+    }, 300);
+  }
+  
+  // TEST: Try loading data immediately on page load to verify functions work
+  setTimeout(function() {
+      console.log('=== TESTING: Direct call after 1 second ===');
+      loadAvailableEvidence();
+  }, 1000);
+  
+  // Load evidence when modal is opened
+  const addEvidenceModal = document.getElementById('addSiteEvidenceModal');
+  if (addEvidenceModal) {
+      addEvidenceModal.addEventListener('show.bs.modal', function() {
+          console.log('Evidence modal opened');
+          loadAvailableEvidence();
+      });
+      // Also attach to modal shown event as fallback
+      addEvidenceModal.addEventListener('shown.bs.modal', function() {
+          console.log('Evidence modal shown (fallback)');
+          if (!addEvidenceModal._evidenceLoaded) {
+              loadAvailableEvidence();
+          }
+      });
+      // Handle focus when modal closes - fix aria-hidden warning
+      addEvidenceModal.addEventListener('hidden.bs.modal', function() {
+          console.log('Evidence modal hidden - restoring focus');
+          document.activeElement.blur();
+      });
+  }
+});
+
+function loadAvailableEvidence() {
+    console.log('=== LOADING EVIDENCE ===');
+    const evidenceSelect = document.getElementById('evidenceSelect');
+    console.log('1. evidenceSelect element:', evidenceSelect);
+    
+    if (!evidenceSelect) {
+        console.error('❌ evidenceSelect element not found');
+        return;
+    }
+    
+    console.log('2. evidenceSelect found - current options:', evidenceSelect.options.length);
+    console.log('3. Fetching from: {% url "api-evidence-list" %}');
+    
+    fetch('{% url "api-evidence-list" %}', {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => {
+        console.log('4. Response received - Status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('5. Data received:', data);
+        console.log('6. data.results:', data.results);
+        console.log('7. Is array?', Array.isArray(data.results));
+        console.log('8. Length:', data.results ? data.results.length : 'N/A');
+        
+        // Clear existing options (keep the placeholder)
+        evidenceSelect.innerHTML = '<option value="">-- Choose evidence --</option>';
+        console.log('9. Cleared dropdown, options count:', evidenceSelect.options.length);
+        
+        // Add evidence to dropdown
+        if (data && data.results && Array.isArray(data.results) && data.results.length > 0) {
+            console.log(`10. Adding ${data.results.length} evidence items...`);
+            data.results.forEach((evidence, idx) => {
+                const option = document.createElement('option');
+                option.value = evidence.id;
+                const displayName = evidence.evidence_name || `Evidence #${evidence.id}`;
+                const description = evidence.description ? ` - ${evidence.description.substring(0, 40)}...` : '';
+                option.textContent = displayName + description;
+                evidenceSelect.appendChild(option);
+                console.log(`   [${idx + 1}] Added: "${option.textContent}" (value: ${option.value})`);
+            });
+            console.log('11. Final options count:', evidenceSelect.options.length);
+            console.log('✅ Evidence loaded successfully!');
+            document.getElementById('addSiteEvidenceModal')._evidenceLoaded = true;
+        } else {
+            console.warn('❌ No evidence found in API response');
+            evidenceSelect.innerHTML = '<option value="">-- No evidence available in database --</option>';
+        }
+    })
+    .catch(error => {
+        console.error('❌ Error loading evidence:', error);
+        evidenceSelect.innerHTML = '<option value="">Error loading evidence</option>';
+    });
+}
+
+function addSiteEvidenceRelation() {
+    const evidenceSelect = document.getElementById('evidenceSelect');
+    const evidenceId = evidenceSelect.value;
+    const siteId = {{ site.id }};
+    
+    if (!evidenceId) {
+        alert('Please select evidence');
+        return;
+    }
+    
+    fetch('{% url "api-site-evidence-create" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            id_site: siteId,
+            id_archaeological_evidence: evidenceId
+        })
+    })
+    .then(response => {
+        if (response.ok) {
+            alert('Evidence linked successfully!');
+            document.getElementById('addSiteEvidenceModal').querySelector('.close').click();
+            // Reload page to show new relation
+            location.reload();
+        } else if (response.status === 400) {
+            return response.json().then(data => {
+                throw new Error(data.error || 'This relation already exists');
+            });
+        } else {
+            throw new Error('Failed to create relation');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error: ' + error.message);
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,26 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "ShareLand PostgreSQL",
+      "Group": "Servers",
+      "Host": "db",
+      "Port": 5432,
+      "MaintenanceDB": "Open_Landscapes",
+      "Username": "postgres",
+      "Password": "admin",
+      "SSLMode": "prefer",
+      "Timeout": 10,
+      "UseSSHTunnel": 0,
+      "TunnelPort": "22",
+      "TunnelAuthentication": 0
+    }
+  }
+}
+
+
+
+
+
+
+
+

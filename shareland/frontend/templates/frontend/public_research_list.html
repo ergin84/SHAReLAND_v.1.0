@@ -1,0 +1,114 @@
+{% extends "frontend/base.html" %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'frontend/public_research.css' %}">
+
+<div class="container mt-4">
+    <div class="public-research-container">
+        <!-- Hero Section -->
+        <div class="hero-section">
+            <h1><i class="fas fa-book-open"></i> Public Research Catalog</h1>
+            <p>Explore archaeological research projects with detailed sites and evidence documentation</p>
+        </div>
+
+        <!-- Research Cards Grid -->
+        <div class="row">
+            {% for research in researches %}
+                <div class="col-md-6 mb-4">
+                    <div class="research-card">
+                        <div class="research-card-header">
+                            <h5>
+                                <a href="{% url 'public-research-detail' research.pk %}">
+                                    <i class="fas fa-file-alt"></i> {{ research.title|default:"Untitled Research" }}
+                                </a>
+                            </h5>
+                        </div>
+                        <div class="research-card-body">
+                            <div class="mb-3">
+                                <span class="info-badge">
+                                    <i class="fas fa-calendar-alt"></i> {{ research.year|default:"N/A" }}
+                                </span>
+                                {% if research.submitted_by %}
+                                    <span class="info-badge">
+                                        <i class="fas fa-user"></i> {{ research.submitted_by.profile.get_display_name }}
+                                    </span>
+                                {% endif %}
+                            </div>
+                            
+                            {% if research.abstract %}
+                                <p class="card-text text-muted">{{ research.abstract|truncatewords:35 }}</p>
+                            {% endif %}
+                            
+                            {% if research.keywords %}
+                                <div class="mb-2">
+                                    <small class="text-muted">
+                                        <i class="fas fa-tags"></i> {{ research.keywords|truncatewords:10 }}
+                                    </small>
+                                </div>
+                            {% endif %}
+                            
+                            {% if research.type %}
+                                <span class="badge-modern">{{ research.type }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="research-card-footer">
+                            <a href="{% url 'public-research-detail' research.pk %}" class="btn btn-primary-modern btn-modern">
+                                <i class="fas fa-eye"></i> View Details <i class="fas fa-arrow-right ml-2"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            {% empty %}
+                <div class="col-12">
+                    <div class="empty-state">
+                        <i class="fas fa-search"></i>
+                        <h3>No Research Found</h3>
+                        <p>There are no research projects available at the moment.</p>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if is_paginated %}
+            <nav aria-label="Research pagination" class="mt-5">
+                <ul class="pagination pagination-modern justify-content-center">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1">
+                                <i class="fas fa-angle-double-left"></i> First
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                <i class="fas fa-angle-left"></i> Previous
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    <li class="page-item active">
+                        <span class="page-link">
+                            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                        </span>
+                    </li>
+
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                Next <i class="fas fa-angle-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">
+                                Last <i class="fas fa-angle-double-right"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock content %}
+

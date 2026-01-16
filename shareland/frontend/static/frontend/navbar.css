@@ -1,0 +1,259 @@
+/* SHAReLand Navigation Bar Styling */
+
+:root {
+  --shareland-primary: #2c3e50;
+  --shareland-secondary: #34495e;
+  --shareland-accent: #3498db;
+  --shareland-text-light: #ecf0f1;
+  --shareland-text-hover: #ffffff;
+  --shareland-border: #1a252f;
+}
+
+/* Main Navbar */
+.shareland-navbar {
+  background: linear-gradient(135deg, var(--shareland-primary) 0%, var(--shareland-secondary) 100%) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 0.75rem 0;
+  border-bottom: 3px solid var(--shareland-accent);
+}
+
+.shareland-navbar.sticky-top {
+  z-index: 1030;
+}
+
+/* Brand/Logo */
+.shareland-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 700;
+  font-size: 1.3rem;
+  color: var(--shareland-text-light) !important;
+  transition: all 0.3s ease;
+}
+
+.shareland-brand:hover {
+  color: var(--shareland-text-hover) !important;
+  transform: translateX(2px);
+}
+
+.shareland-brand .navbar-logo {
+  width: 32px;
+  height: 32px;
+  filter: brightness(0) invert(1);
+  transition: transform 0.3s ease;
+}
+
+.shareland-brand:hover .navbar-logo {
+  transform: rotate(5deg) scale(1.05);
+}
+
+.brand-text {
+  letter-spacing: 0.5px;
+}
+
+/* Mobile Toggle */
+.navbar-toggler {
+  border: none;
+  padding: 0.25rem 0.5rem;
+}
+
+.navbar-toggler:focus {
+  box-shadow: none;
+  outline: 2px solid var(--shareland-accent);
+  outline-offset: 2px;
+}
+
+.navbar-toggler-icon {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='%23ecf0f1' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+
+/* Navigation Links */
+.navbar-nav .nav-link {
+  color: var(--shareland-text-light) !important;
+  font-weight: 500;
+  margin: 0 4px;
+  padding: 0.5rem 0.75rem !important;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.navbar-nav .nav-link:hover {
+  color: var(--shareland-text-hover) !important;
+  background-color: rgba(52, 152, 219, 0.15);
+  padding-left: 0.85rem !important;
+}
+
+.navbar-nav .nav-link.active {
+  background-color: var(--shareland-accent);
+  color: white !important;
+}
+
+/* Dropdown Menus */
+.dropdown-menu {
+  background-color: var(--shareland-secondary);
+  border: 1px solid var(--shareland-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropdown-menu .dropdown-item {
+  color: var(--shareland-text-light);
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.dropdown-menu .dropdown-item:hover {
+  background-color: rgba(52, 152, 219, 0.2);
+  color: var(--shareland-text-hover);
+  padding-left: 1.35rem;
+}
+
+.dropdown-menu .dropdown-item.active {
+  background-color: var(--shareland-accent);
+  color: white;
+}
+
+.dropdown-divider {
+  border-color: var(--shareland-border);
+  margin: 0.5rem 0;
+}
+
+/* Right-aligned Menu */
+.navbar-right-menu {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Special Styling for User Menu */
+.navbar-nav .user-menu {
+  font-weight: 600;
+  color: var(--shareland-accent) !important;
+}
+
+.navbar-nav .user-menu:hover {
+  color: var(--shareland-text-hover) !important;
+  background-color: rgba(52, 152, 219, 0.2);
+}
+
+/* Auth Buttons */
+.btn-nav-login {
+  color: var(--shareland-text-light) !important;
+  border: 2px solid var(--shareland-accent);
+  padding: 0.4rem 1rem !important;
+  border-radius: 4px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  margin: 0 2px;
+}
+
+.btn-nav-login:hover {
+  background-color: var(--shareland-accent);
+  color: white !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+}
+
+.btn-nav-signup {
+  color: white !important;
+  background-color: var(--shareland-accent);
+  padding: 0.4rem 1rem !important;
+  border-radius: 4px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  margin: 0 2px;
+}
+
+.btn-nav-signup:hover {
+  background-color: #2980b9;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(52, 152, 219, 0.4);
+}
+
+/* Responsive Design */
+@media (max-width: 991px) {
+  .navbar-collapse {
+    background-color: rgba(44, 62, 80, 0.95);
+    border-radius: 0 0 6px 6px;
+    margin-top: 10px;
+    padding: 10px 0;
+  }
+
+  .navbar-nav {
+    text-align: center;
+  }
+
+  .navbar-nav .nav-link {
+    padding: 0.75rem 1rem !important;
+  }
+
+  .navbar-right-menu {
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--shareland-border);
+  }
+
+  .dropdown-menu {
+    position: static;
+    float: none;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 10px;
+    box-shadow: none;
+    background-color: rgba(52, 73, 94, 0.9);
+  }
+
+  .btn-nav-login,
+  .btn-nav-signup {
+    width: 100%;
+    margin: 0 !important;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .shareland-navbar {
+    background: linear-gradient(135deg, #1a252f 0%, #1f2f40 100%) !important;
+  }
+
+  .dropdown-menu {
+    background-color: #1f2f40;
+  }
+}
+
+/* Accessibility */
+.navbar-nav .nav-link:focus,
+.dropdown-menu .dropdown-item:focus {
+  outline: 2px solid var(--shareland-accent);
+  outline-offset: 2px;
+}
+
+/* Icon styling */
+.navbar-nav .nav-link i,
+.dropdown-menu .dropdown-item i {
+  font-size: 1.1em;
+  min-width: 16px;
+  text-align: center;
+}

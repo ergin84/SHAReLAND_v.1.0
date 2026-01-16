@@ -1,0 +1,207 @@
+{% extends "frontend/base.html" %}
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'users/profile.css' %}">
+
+<div class="profile-container">
+  <!-- Profile Header -->
+  <div class="profile-header">
+    <div class="profile-header-content">
+      <div class="profile-avatar-section">
+        <div class="avatar-wrapper">
+          <img src="{{ user.profile.image.url }}" alt="{{ user.username }}" class="profile-avatar">
+          <div class="avatar-badge">
+            {% if user.is_staff %}
+            <i class="fas fa-shield-alt" title="Staff Member"></i>
+            {% else %}
+            <i class="fas fa-user" title="User"></i>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      
+      <div class="profile-info-section">
+        <h1 class="profile-name">
+          {% if user.profile.get_full_name %}
+            {{ user.profile.get_full_name }}
+          {% else %}
+            {{ user.username }}
+          {% endif %}
+        </h1>
+        <p class="profile-username">@{{ user.username }}</p>
+        
+        <div class="profile-meta">
+          <div class="meta-item">
+            <i class="fas fa-envelope"></i>
+            <span>{{ user.email }}</span>
+          </div>
+          
+          {% if user.profile.affiliation %}
+          <div class="meta-item">
+            <i class="fas fa-building"></i>
+            <span>{{ user.profile.affiliation }}</span>
+          </div>
+          {% endif %}
+          
+          {% if user.profile.qualification %}
+          <div class="meta-item">
+            <i class="fas fa-graduation-cap"></i>
+            <span>{{ user.profile.qualification }}</span>
+          </div>
+          {% endif %}
+          
+          {% if user.profile.orcid %}
+          <div class="meta-item">
+            <i class="fab fa-orcid"></i>
+            <span>{{ user.profile.orcid }}</span>
+          </div>
+          {% endif %}
+          
+          <div class="meta-item">
+            <i class="fas fa-calendar-alt"></i>
+            <span>Joined {{ user.date_joined|date:"F Y" }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile Content -->
+  <div class="profile-content">
+    <!-- Edit Profile Section -->
+    <div class="profile-edit-section">
+      <div class="section-header">
+        <i class="fas fa-user-edit"></i>
+        <h2>Edit Profile</h2>
+      </div>
+
+      <form method="POST" enctype="multipart/form-data" class="profile-form">
+        {% csrf_token %}
+        
+        <div class="form-sections">
+          <!-- Account Information -->
+          <div class="form-section">
+            <h3 class="form-section-title">
+              <i class="fas fa-user-circle"></i>
+              Account Information
+            </h3>
+            <div class="form-fields">
+              {{ u_form|crispy }}
+            </div>
+          </div>
+
+          <!-- Profile Details -->
+          <div class="form-section">
+            <h3 class="form-section-title">
+              <i class="fas fa-id-card"></i>
+              Profile Details
+            </h3>
+            <div class="form-fields">
+              {{ p_form|crispy }}
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-submit">
+            <i class="fas fa-save"></i>
+            Update Profile
+          </button>
+          <a href="{% url 'home' %}" class="btn-cancel">
+            <i class="fas fa-times"></i>
+            Cancel
+          </a>
+        </div>
+      </form>
+    </div>
+
+    <!-- User Statistics Section -->
+    <div class="profile-stats-section">
+      <div class="section-header">
+        <i class="fas fa-chart-bar"></i>
+        <h2>Statistics</h2>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">
+            <i class="fas fa-flask"></i>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value">{{ user.research_set.count }}</span>
+            <span class="stat-label">Research Projects</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">
+            <i class="fas fa-eye"></i>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value">{{ user.research_set.filter.count }}</span>
+            <span class="stat-label">Total Views</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">
+            <i class="fas fa-calendar-check"></i>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value">{{ user.date_joined|timesince }}</span>
+            <span class="stat-label">Member Since</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Links -->
+      <div class="quick-links">
+        <h3 class="quick-links-title">Quick Actions</h3>
+        <div class="links-grid">
+          <a href="{% url 'user-researches' user %}" class="quick-link-item">
+            <i class="fas fa-list"></i>
+            <span>My Research</span>
+          </a>
+          <a href="{% url 'create-research' %}" class="quick-link-item">
+            <i class="fas fa-plus-circle"></i>
+            <span>New Research</span>
+          </a>
+          {% if user.is_staff %}
+          <a href="{% url 'database_browser' %}" class="quick-link-item">
+            <i class="fas fa-database"></i>
+            <span>Database</span>
+          </a>
+          <a href="{% url 'audit_log_list' %}" class="quick-link-item">
+            <i class="fas fa-shield-alt"></i>
+            <span>Audit Logs</span>
+          </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Preview profile image before upload
+  document.addEventListener('DOMContentLoaded', function() {
+    const imageInput = document.querySelector('input[type="file"][name*="image"]');
+    if (imageInput) {
+      imageInput.addEventListener('change', function(e) {
+        if (e.target.files && e.target.files[0]) {
+          const reader = new FileReader();
+          reader.onload = function(event) {
+            const avatar = document.querySelector('.profile-avatar');
+            if (avatar) {
+              avatar.src = event.target.result;
+            }
+          };
+          reader.readAsDataURL(e.target.files[0]);
+        }
+      });
+    }
+  });
+</script>
+{% endblock content %}

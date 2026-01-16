@@ -1,0 +1,112 @@
+{% extends "frontend/base.html" %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'frontend/list_views.css' %}">
+
+<div class="container mt-4">
+    <div class="list-container">
+        <!-- Header Section -->
+        <div class="list-header">
+            <h1><i class="fas fa-book"></i> My Research Projects</h1>
+            <p>Manage your archaeological research projects and documentation</p>
+        </div>
+
+        <!-- Research Cards Grid or Empty State -->
+        {% if researches %}
+            <div class="grid-list">
+                {% for research in researches %}
+                    <div class="list-item-card">
+                        <div class="list-item-header">
+                            <h5>
+                                <a href="{% url 'research-detail' research.id %}">
+                                    <i class="fas fa-file-alt"></i> {{ research.title|default:"Untitled Research" }}
+                                </a>
+                            </h5>
+                        </div>
+                        <div class="list-item-body">
+                            {% if research.abstract %}
+                                <p>{{ research.abstract|truncatewords:30 }}</p>
+                            {% else %}
+                                <p class="text-muted"><em>No abstract provided</em></p>
+                            {% endif %}
+                            
+                            <div class="mt-2">
+                                {% if research.year %}
+                                    <span class="info-label">
+                                        <i class="fas fa-calendar-alt"></i> {{ research.year }}
+                                    </span>
+                                {% endif %}
+                                {% if research.type %}
+                                    <span class="info-label">
+                                        <i class="fas fa-tag"></i> {{ research.type }}
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="list-item-footer">
+                            <a href="{% url 'research-detail' research.id %}" class="btn btn-primary-modern">
+                                <i class="fas fa-eye"></i> View
+                            </a>
+                            <a href="{% url 'research-update' research.id %}" class="btn btn-warning-modern">
+                                <i class="fas fa-pencil-alt"></i> Edit
+                            </a>
+                            <form method="POST" action="{% url 'research-delete' research.id %}" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this research project?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger-modern">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination -->
+            {% if is_paginated %}
+                <nav aria-label="Research pagination" class="mt-5">
+                    <ul class="pagination pagination-modern justify-content-center">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1">
+                                    <i class="fas fa-angle-double-left"></i> First
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                    <i class="fas fa-angle-left"></i> Previous
+                                </a>
+                            </li>
+                        {% endif %}
+
+                        <li class="page-item active">
+                            <span class="page-link">
+                                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                            </span>
+                        </li>
+
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                    Next <i class="fas fa-angle-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">
+                                    Last <i class="fas fa-angle-double-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-book"></i>
+                <h3>No Research Projects</h3>
+                <p>You haven't created any research projects yet. Create your first research project to get started.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
