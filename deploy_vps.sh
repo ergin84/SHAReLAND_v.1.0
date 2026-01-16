@@ -175,8 +175,8 @@ SETTINGS_MODULE=""
 SETTINGS_IMPORT=""
 if [ -d "${APP_DIR}/repo/shareland/ShareLand" ]; then
     DJANGO_PROJECT_DIR="${APP_DIR}/repo/shareland/ShareLand"
-    SETTINGS_MODULE="shareland.settings_production"
-    SETTINGS_IMPORT="from shareland.settings import *"
+    SETTINGS_MODULE="ShareLand.settings_production"
+    SETTINGS_IMPORT="from ShareLand.settings import *"
     echo "Using: ${DJANGO_PROJECT_DIR}"
 elif [ -d "${APP_DIR}/repo/ShareLand" ]; then
     DJANGO_PROJECT_DIR="${APP_DIR}/repo/ShareLand"
@@ -185,8 +185,8 @@ elif [ -d "${APP_DIR}/repo/ShareLand" ]; then
     echo "Using: ${DJANGO_PROJECT_DIR}"
 elif [ -d "${APP_DIR}/repo/SHAReLAND_v.1.0/shareland/ShareLand" ]; then
     DJANGO_PROJECT_DIR="${APP_DIR}/repo/SHAReLAND_v.1.0/shareland/ShareLand"
-    SETTINGS_MODULE="shareland.settings_production"
-    SETTINGS_IMPORT="from shareland.settings import *"
+    SETTINGS_MODULE="ShareLand.settings_production"
+    SETTINGS_IMPORT="from ShareLand.settings import *"
     echo "Using: ${DJANGO_PROJECT_DIR}"
 elif [ -d "${APP_DIR}/repo/SHAReLAND_v.1.0/ShareLand" ]; then
     DJANGO_PROJECT_DIR="${APP_DIR}/repo/SHAReLAND_v.1.0/ShareLand"
@@ -307,7 +307,7 @@ chown -R ${APP_USER}:${APP_GROUP} ${APP_DIR}/media
 # Determine working directory for manage.py commands and Gunicorn
 if [ -f "${APP_DIR}/repo/shareland/manage.py" ]; then
     WORK_DIR="${APP_DIR}/repo/shareland"
-    WSGI_MODULE="shareland.wsgi:application"
+    WSGI_MODULE="ShareLand.wsgi:application"
 elif [ -f "${APP_DIR}/repo/manage.py" ]; then
     WORK_DIR="${APP_DIR}/repo"
     WSGI_MODULE="ShareLand.wsgi:application"
