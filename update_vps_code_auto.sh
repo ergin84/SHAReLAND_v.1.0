@@ -94,13 +94,18 @@ else
         echo "Run './setup_vps_github_auth.sh' to configure authentication."
         echo "Continuing with existing code..."
     else
-        sudo -u shareland git checkout master 2>/dev/null || true
-        if sudo -u shareland git pull origin master 2>&1 | grep -q "Permission denied\|Authentication failed\|could not read Username"; then
-            echo "WARNING: Git pull failed - authentication required for private repository."
-            echo "Run './setup_vps_github_auth.sh' to configure authentication."
-            echo "Using existing code for now..."
+        sudo -u shareland git checkout main 2>/dev/null || sudo -u shareland git checkout master 2>/dev/null || true
+        if sudo -u shareland git pull origin main 2>&1 | grep -q "Permission denied\|Authentication failed\|could not read Username"; then
+            # Fallback to master if main doesn't exist
+            if sudo -u shareland git pull origin master 2>&1 | grep -q "Permission denied\|Authentication failed\|could not read Username"; then
+                echo "WARNING: Git pull failed - authentication required for private repository."
+                echo "Run './setup_vps_github_auth.sh' to configure authentication."
+                echo "Using existing code for now..."
+            else
+                echo "Code updated successfully (from master branch)"
+            fi
         else
-            echo "Code updated successfully"
+            echo "Code updated successfully (from main branch)"
         fi
     fi
 fi
