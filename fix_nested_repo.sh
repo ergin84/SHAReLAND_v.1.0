@@ -75,3 +75,5 @@ echo "1. Push to GitHub: git push origin master"
 echo "2. Deploy to VPS: ./quick_deploy.sh"
 echo ""
 
+
+

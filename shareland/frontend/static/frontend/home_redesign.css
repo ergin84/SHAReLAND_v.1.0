@@ -113,23 +113,33 @@
   opacity: 0.97;
 }
 
+.hero-tagline {
+  margin: 1rem 0 2rem 0;
+}
+
 .hero-subtitle {
   font-size: 1.2rem;
-  margin: 0 0 1.5rem 0;
-  opacity: 0.9;
-  font-weight: 500;
-  letter-spacing: 1px;
+  margin: 0.5rem 0;
+  opacity: 0.95;
+  font-weight: 600;
+  letter-spacing: 2px;
   text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(44,62,80,0.5);
+}
+
+.hero-text {
+  margin: 2rem auto 2.5rem auto;
+  max-width: 700px;
 }
 
 .hero-description {
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   line-height: 1.8;
-  margin: 0 0 2.5rem 0;
+  margin: 0.75rem 0;
   opacity: 0.95;
-  max-width: 700px;
-  margin-left: auto;
-  margin-right: auto;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(44,62,80,0.4);
 }
 
 .hero-actions {

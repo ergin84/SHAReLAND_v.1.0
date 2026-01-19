@@ -23,14 +23,15 @@
       </svg>
     </div>
     <h1 class="hero-title">SHAReLAND</h1>
-    <p class="hero-subtitle">
-      Share Archaeological Research & Landscape Analysis Network Database
-    </p>
-    <p class="hero-description">
-      A collaborative platform for archaeologists to discover, share, and preserve 
-      digital heritage data. Join a global community dedicated to advancing 
-      archaeological research through data sharing.
-    </p>
+    <div class="hero-tagline">
+      <p class="hero-subtitle">SHARING AND REUSING</p>
+      <p class="hero-subtitle">LANDSCAPE ARCHAEOLOGICAL DATA</p>
+    </div>
+    <div class="hero-text">
+      <p class="hero-description">Open and collaborative platform for archaeological landscapes.</p>
+      <p class="hero-description">Sharing knowledge, advancing research, connecting people.</p>
+      <p class="hero-description">Designed for archaeologists, students, and anyone interested in understanding and preserving archaeological landscapes.</p>
+    </div>
     <div class="hero-actions">
       {% if not user.is_authenticated %}
         <a href="{% url 'register' %}" class="hero-btn hero-btn-primary">
