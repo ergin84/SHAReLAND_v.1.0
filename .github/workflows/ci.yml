@@ -70,7 +70,7 @@ jobs:
         run: |
           ruff check shareland/ \
             --select E,W,F \
-            --ignore E501,W503 \
+            --ignore E501 \
             --exclude shareland/frontend/migrations/,shareland/users/migrations/
 
       # Django system check — validates models, URLs, settings, middleware
