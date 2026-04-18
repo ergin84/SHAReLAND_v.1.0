@@ -39,6 +39,7 @@ jobs:
           script: |
             set -euo pipefail
             echo "=== [1/6] Pull latest code ==="
+            git config --global --add safe.directory ${{ secrets.VPS_PROJECT_PATH }}
             cd ${{ secrets.VPS_PROJECT_PATH }}
             git fetch origin main
             git reset --hard origin/main
