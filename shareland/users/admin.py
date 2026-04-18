@@ -1,5 +1,4 @@
 from django.contrib import admin
-from django.contrib.auth.models import User
 
 from .models import Profile, UserRole
 
@@ -30,7 +29,7 @@ class ProfileAdmin(admin.ModelAdmin):
         ('Legacy', {'fields': ('id_anagraphic',)}),
     )
     filter_horizontal = ['user_roles']
-    
+
     def get_roles(self, obj):
         """Display roles as comma-separated string"""
         return ', '.join(obj.get_role_names()) or '—'

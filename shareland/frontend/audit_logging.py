@@ -3,9 +3,7 @@ Audit logging utilities for tracking operations.
 Provides functions to log create, update, and delete operations.
 """
 
-from django.utils import timezone
 from .audit_models import AuditLog
-import json
 
 
 def get_client_ip(request):
@@ -26,7 +24,7 @@ def get_user_agent(request):
 def log_operation(user, operation, model_instance, request=None, old_values=None, new_values=None):
     """
     Log a user operation to the audit log.
-    
+
     Args:
         user: Django User instance who performed the operation
         operation: Type of operation (CREATE, UPDATE, DELETE, VIEW)
@@ -41,13 +39,13 @@ def log_operation(user, operation, model_instance, request=None, old_values=None
             for key in new_values:
                 if key in old_values and old_values[key] != new_values[key]:
                     changes[key] = (str(old_values[key])[:100], str(new_values[key])[:100])
-        
+
         ip_address = None
         user_agent = ''
         if request:
             ip_address = get_client_ip(request)
             user_agent = get_user_agent(request)
-        
+
         AuditLog.objects.create(
             user=user,
             operation=operation,
@@ -73,14 +71,14 @@ def log_model_change(sender, instance, created, request=None, **kwargs):
     # Skip if model hasn't been saved yet or is a special model
     if not instance.pk:
         return
-    
+
     operation = 'CREATE' if created else 'UPDATE'
-    
+
     # Try to get user from thread-local or request
     user = None
     if request and hasattr(request, 'user'):
         user = request.user if request.user.is_authenticated else None
-    
+
     if user:
         log_operation(user, operation, instance, request)
 
@@ -93,6 +91,6 @@ def log_model_delete(sender, instance, request=None, **kwargs):
     user = None
     if request and hasattr(request, 'user'):
         user = request.user if request.user.is_authenticated else None
-    
+
     if user:
         log_operation(user, 'DELETE', instance, request)

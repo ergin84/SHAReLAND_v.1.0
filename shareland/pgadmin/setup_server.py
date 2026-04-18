@@ -4,7 +4,6 @@ Script to automatically configure PostgreSQL server in pgAdmin
 """
 import time
 import requests
-import json
 
 # Wait for pgAdmin to be ready
 time.sleep(10)
@@ -29,27 +28,27 @@ try:
     # Login to pgAdmin
     login_url = f"{PGADMIN_URL}/misc/login"
     session = requests.Session()
-    
+
     login_data = {
         "email": PGADMIN_EMAIL,
         "password": PGADMIN_PASSWORD
     }
-    
+
     response = session.post(login_url, json=login_data)
-    
+
     if response.status_code == 200:
         print("Logged in to pgAdmin successfully")
-        
+
         # Get CSRF token from cookies or headers
         csrf_token = session.cookies.get('csrf_token', '')
-        
+
         # Add server
         server_url = f"{PGADMIN_URL}/browser/server/object/"
         headers = {
             "Content-Type": "application/json",
             "X-CSRFToken": csrf_token
         }
-        
+
         server_data = {
             "name": SERVER_CONFIG["name"],
             "host": SERVER_CONFIG["host"],
@@ -59,16 +58,16 @@ try:
             "password": SERVER_CONFIG["password"],
             "ssl_mode": SERVER_CONFIG["ssl_mode"]
         }
-        
+
         response = session.post(server_url, json=server_data, headers=headers)
-        
+
         if response.status_code in [200, 201]:
             print("Server added successfully!")
         else:
             print(f"Failed to add server: {response.status_code} - {response.text}")
     else:
         print(f"Login failed: {response.status_code}")
-        
+
 except Exception as e:
     print(f"Error configuring pgAdmin: {e}")
 

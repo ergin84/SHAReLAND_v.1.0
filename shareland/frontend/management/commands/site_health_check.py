@@ -1,7 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.core.mail import mail_admins
 from django.db import connections
-from django.conf import settings
 import shutil
 
 class Command(BaseCommand):

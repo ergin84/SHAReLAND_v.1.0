@@ -173,12 +173,12 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 31536000  # 1 year
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
-    
+
     # Proxy headers for nginx
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     USE_X_FORWARDED_HOST = True
     USE_X_FORWARDED_PORT = True
-    
+
     # Additional security
     X_FRAME_OPTIONS = 'SAMEORIGIN'
     SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'

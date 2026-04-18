@@ -6,7 +6,6 @@ Maps old Author UUIDs to new User IDs based on the username pattern created duri
 import csv
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
-from django.conf import settings
 import os
 
 from frontend.models import Research, ResearchAuthor
@@ -37,17 +36,17 @@ class Command(BaseCommand):
         Also tries to find by email pattern: author.{uuid_prefix}@shareland.local
         """
         uuid_prefix = author_uuid[:8]
-        
+
         # Try by username first
         user = User.objects.filter(username=f'author_{uuid_prefix}').first()
         if user:
             return user
-        
+
         # Try by email
         user = User.objects.filter(email__startswith=f'author.{uuid_prefix}').first()
         if user:
             return user
-        
+
         return None
 
     def handle(self, *args, **options):
@@ -75,7 +74,7 @@ class Command(BaseCommand):
         with open(csv_path, newline='', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             rows = list(reader)
-            
+
             with transaction.atomic():
                 for i, row in enumerate(rows, start=1):
                     try:

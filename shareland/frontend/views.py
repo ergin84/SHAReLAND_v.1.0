@@ -1,12 +1,9 @@
 import csv
-import json
 import logging
 import os
-import re
+import subprocess
 from collections import defaultdict
 from datetime import timedelta
-
-logger = logging.getLogger(__name__)
 
 from django.conf import settings
 from django.contrib import messages
@@ -18,7 +15,7 @@ from django.core.files.storage import default_storage
 from django.core.paginator import Paginator
 from django.db import connection, models
 from django.db.models import Q
-from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
@@ -68,6 +65,7 @@ from .shapefile_utils import extract_geometry_from_shapefile
 from .utils import create_folium_map, parse_geometry_string
 from .utils.author_user import find_or_create_user_as_author, get_or_update_user_profile
 
+logger = logging.getLogger(__name__)
 
 
 
@@ -78,21 +76,21 @@ def save_uploaded_image(image_file, subfolder='images'):
     """
     if not image_file:
         return None
-    
+
     try:
         # Sanitize filename - keep only alphanumeric, dots, hyphens, underscores
         filename = image_file.name
         filename = "".join(c for c in filename if c.isalnum() or c in '._-')
-        
+
         if not filename:
             return None
-        
+
         # Create subdirectory path
         media_path = f'{subfolder}/{filename}'
-        
+
         # Save file to media folder
         file_path = default_storage.save(media_path, image_file)
-        
+
         # Return accessible URL path
         return f'/media/{file_path}'
     except Exception as e:
@@ -221,24 +219,24 @@ class PublicResearchDetailView(DetailView):
             .distinct()
         )
         sites = Site.objects.filter(id__in=site_ids)
-        
+
         # Get all archaeological evidence related to this research (directly)
         # Use values_list to get IDs first, then fetch objects to avoid geometry comparison
         direct_evidence_ids = ArchEvResearch.objects.filter(
             id_research=research.id
         ).values_list('id_archaeological_evidence_id', flat=True)
-        direct_evidences = ArchaeologicalEvidence.objects.filter(id__in=direct_evidence_ids)
-        
+        ArchaeologicalEvidence.objects.filter(id__in=direct_evidence_ids)
+
         # Get archaeological evidence linked through sites
         site_evidence_ids = SiteArchEvidence.objects.filter(
             id_site_id__in=site_ids
         ).values_list('id_archaeological_evidence_id', flat=True)
-        site_evidences = ArchaeologicalEvidence.objects.filter(id__in=site_evidence_ids)
-        
+        ArchaeologicalEvidence.objects.filter(id__in=site_evidence_ids)
+
         # Combine all evidence IDs and fetch unique objects
         all_evidence_ids = set(list(direct_evidence_ids) + list(site_evidence_ids))
         all_evidences = ArchaeologicalEvidence.objects.filter(id__in=all_evidence_ids)
-        
+
         # Get authors for this research
         author_ids = list(
             ResearchAuthor.objects
@@ -247,7 +245,7 @@ class PublicResearchDetailView(DetailView):
             .distinct()
         )
         authors = User.objects.filter(id__in=author_ids).order_by('last_name', 'first_name', 'email').select_related('profile')
-        
+
         # For each site, get its related data
         sites_with_details = []
         for site in sites:
@@ -256,7 +254,7 @@ class PublicResearchDetailView(DetailView):
                 id_site_id=site.id
             ).values_list('id_archaeological_evidence_id', flat=True)
             site_evidences_list = ArchaeologicalEvidence.objects.filter(id__in=site_evidence_ids_list)
-            
+
             site_data = {
                 'site': site,
                 'toponymy': SiteToponymy.objects.filter(id_site=site).first(),
@@ -269,7 +267,7 @@ class PublicResearchDetailView(DetailView):
                 'evidences': site_evidences_list,
             }
             sites_with_details.append(site_data)
-        
+
         # For each evidence, get its related data
         evidences_with_details = []
         for evidence in all_evidences:
@@ -280,15 +278,15 @@ class PublicResearchDetailView(DetailView):
                 'related_doc': ArchEvRelatedDoc.objects.filter(id_archaeological_evidence=evidence).first(),
             }
             evidences_with_details.append(evidence_data)
-        
+
         # Create Folium map for research geometry
         map_html = None
         if research.geometry:
             map_html = create_folium_map(
-                research.geometry, 
+                research.geometry,
                 research_title=research.title or "Research Area"
             )
-        
+
         # Add user and research info for permission checks in template
         context.update({
             'sites_with_details': sites_with_details,
@@ -310,14 +308,14 @@ class ResearchCatalogView(ListView):
     def get_queryset(self):
         queryset = Research.objects.all().select_related('submitted_by').order_by('title')
         search_query = self.request.GET.get('q', '').strip()
-        
+
         if search_query:
             queryset = queryset.filter(
                 Q(title__icontains=search_query) |
                 Q(abstract__icontains=search_query) |
                 Q(keywords__icontains=search_query)
             )
-        
+
         return queryset
 
     def get_context_data(self, **kwargs):
@@ -496,7 +494,7 @@ class ResearchCreateView(LoginRequiredMixin, CreateView):
         else:
             # Search for user or create new one
             user_id = self.request.POST.get('author_user_id')
-            
+
             if user_id:
                 author_user = get_object_or_404(User, pk=user_id)
                 affiliation = self.request.POST.get('author_affiliation', '')
@@ -541,7 +539,7 @@ class ResearchCreateView(LoginRequiredMixin, CreateView):
         index = 0
         while True:
             co_user_id = self.request.POST.get(f'coauthor_user_id_{index}')
-            
+
             if co_user_id:
                 # User found
                 co_user = User.objects.filter(pk=co_user_id).first()
@@ -581,11 +579,11 @@ class ResearchDetailView(LoginRequiredMixin, DetailView):
         # Get unique sites linked to this research (avoid duplicates)
         site_ids = SiteResearch.objects.filter(id_research=research).values_list('id_site_id', flat=True).distinct()
         unique_sites = Site.objects.filter(id__in=site_ids)
-        
+
         # Get authors for this research (distinct to avoid duplicates)
         author_ids = ResearchAuthor.objects.filter(id_research=research).values_list('id_author_id', flat=True).distinct()
         authors = User.objects.filter(id__in=author_ids).select_related('profile')
-        
+
         # For each site, get its related data (similar to public view)
         sites_with_details = []
         for site in unique_sites:
@@ -594,21 +592,21 @@ class ResearchDetailView(LoginRequiredMixin, DetailView):
                 id_site_id=site.id
             ).values_list('id_archaeological_evidence_id', flat=True)
             site_evidences_list = ArchaeologicalEvidence.objects.filter(id__in=site_evidence_ids_list)
-            
+
             # Get ALL bibliographies for this site (not just first)
             site_biblios = SiteBibliography.objects.filter(id_site=site).select_related('id_bibliography')
             bibliographies = [sb.id_bibliography for sb in site_biblios]
-            
+
             # Get ALL sources for this site
             site_sources_links = SiteSources.objects.filter(id_site=site).select_related('id_sources')
             sources = [ss.id_sources for ss in site_sources_links]
-            
+
             # Get ALL related docs for this site
             related_docs = SiteRelatedDocumentation.objects.filter(id_site=site)
-            
+
             # Get ALL images for this site
             site_images = Image.objects.filter(id_site=site)
-            
+
             site_data = {
                 'site': site,
                 'toponymy': SiteToponymy.objects.filter(id_site=site).first(),
@@ -627,24 +625,24 @@ class ResearchDetailView(LoginRequiredMixin, DetailView):
             id_research=research.id
         ).values_list('id_archaeological_evidence_id', flat=True)
         direct_evidences = ArchaeologicalEvidence.objects.filter(id__in=direct_evidence_ids)
-        
+
         # For each evidence, get its related data
         evidences_with_details = []
         for evidence in direct_evidences:
             # Get ALL bibliographies for this evidence
             ev_biblios = ArchEvBiblio.objects.filter(id_archaeological_evidence=evidence).select_related('id_bibliography')
             bibliographies = [eb.id_bibliography for eb in ev_biblios]
-            
+
             # Get ALL sources for this evidence
             ev_sources_links = ArchEvSources.objects.filter(id_archaeological_evidence=evidence).select_related('id_sources')
             sources = [es.id_sources for es in ev_sources_links]
-            
+
             # Get ALL related docs for this evidence
             related_docs = ArchEvRelatedDoc.objects.filter(id_archaeological_evidence=evidence)
-            
+
             # Get ALL images for this evidence
             ev_images = Image.objects.filter(id_archaeological_evidence=evidence)
-            
+
             evidence_data = {
                 'evidence': evidence,
                 'bibliographies': bibliographies,  # Multiple entries
@@ -657,17 +655,17 @@ class ResearchDetailView(LoginRequiredMixin, DetailView):
         context['sites_with_details'] = sites_with_details
         context['evidences_with_details'] = evidences_with_details
         context['authors'] = authors
-        
+
         # Create Folium map for research geometry
         map_html = None
         if research.geometry:
             map_html = create_folium_map(
-                research.geometry, 
+                research.geometry,
                 research_title=research.title or "Research Area"
             )
         context['map_html'] = map_html
         context['research_owner'] = research.submitted_by if research.submitted_by else None
-        
+
         return context
 
 
@@ -695,12 +693,12 @@ class ResearchUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         research = self.get_object()
-        
+
         # Get existing authors for this research
         author_ids = ResearchAuthor.objects.filter(id_research=research).values_list('id_author_id', flat=True).distinct()
         authors = User.objects.filter(id__in=author_ids).select_related('profile')
         context['existing_authors'] = authors
-        
+
         return context
 
     def form_valid(self, form):
@@ -728,7 +726,7 @@ class ResearchUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
             author_user = self.request.user
         else:
             user_id = self.request.POST.get('author_user_id')
-            
+
             if user_id:
                 author_user = get_object_or_404(User, pk=user_id)
                 affiliation = self.request.POST.get('author_affiliation', '')
@@ -863,26 +861,26 @@ def search_authors(request):
     results = []
 
     if query and len(query) >= 3:
-        
+
         # Search by last_name (surname) in User model - highest priority
         user_surname_matches = User.objects.filter(
             last_name__icontains=query
         ).select_related('profile').distinct()[:10]
-        
+
         seen_users = set()
-        
+
         def add_user_result(user, match_type):
             """Helper to add user result if not already seen"""
             if user.id in seen_users:
                 return
             seen_users.add(user.id)
-            
+
             # Get profile if exists
             try:
                 profile = user.profile
-            except:
+            except Exception:
                 profile = None
-            
+
             results.append({
                 'type': 'user',
                 'user_id': user.id,
@@ -895,41 +893,41 @@ def search_authors(request):
                 'contact_email': profile.contact_email if profile else '',
                 'match_type': match_type
             })
-        
+
         # Process surname matches (highest priority)
         for user in user_surname_matches:
             add_user_result(user, 'surname')
-        
+
         # Search by first_name (name) - medium priority
         remaining_slots = 10 - len(results)
         if remaining_slots > 0:
             user_firstname_matches = User.objects.filter(
                 first_name__icontains=query
             ).exclude(id__in=seen_users).select_related('profile').distinct()[:remaining_slots]
-            
+
             for user in user_firstname_matches:
                 add_user_result(user, 'firstname')
-        
+
         # Search by username - medium-low priority
         remaining_slots = 10 - len(results)
         if remaining_slots > 0:
             user_username_matches = User.objects.filter(
                 username__icontains=query
             ).exclude(id__in=seen_users).select_related('profile').distinct()[:remaining_slots]
-            
+
             for user in user_username_matches:
                 add_user_result(user, 'username')
-        
+
         # Search by email - lowest priority
         remaining_slots = 10 - len(results)
         if remaining_slots > 0:
             user_email_matches = User.objects.filter(
                 email__icontains=query
             ).exclude(id__in=seen_users).select_related('profile').distinct()[:remaining_slots]
-            
+
             for user in user_email_matches:
                 add_user_result(user, 'email')
-    
+
     return JsonResponse(results[:10], safe=False)
 
 
@@ -1028,11 +1026,11 @@ class SiteCreateView(LoginRequiredMixin, CreateView):
             year = self.request.POST.get(f'biblio_year_{biblio_index}')
             doi = self.request.POST.get(f'biblio_doi_{biblio_index}')
             tipo = self.request.POST.get(f'biblio_tipo_{biblio_index}')
-            
+
             # Break if no more bibliography entries
             if title is None:
                 break
-            
+
             # Only save if at least one field is filled
             if title or author or year or doi or tipo:
                 bibliography = Bibliography.objects.create(
@@ -1046,7 +1044,7 @@ class SiteCreateView(LoginRequiredMixin, CreateView):
                     id_site=site,
                     id_bibliography=bibliography
                 )
-            
+
             biblio_index += 1
 
         # Save multiple sources
@@ -1055,11 +1053,11 @@ class SiteCreateView(LoginRequiredMixin, CreateView):
             source_name = self.request.POST.get(f'source_name_{source_index}')
             if source_name is None:
                 break
-            
+
             # Only save if at least one field is filled
             chronology_id = self.request.POST.get(f'source_chronology_{source_index}')
             source_type_id = self.request.POST.get(f'source_type_{source_index}')
-            
+
             if source_name or chronology_id or source_type_id:
                 source = Sources.objects.create(
                     name=source_name or '',
@@ -1070,7 +1068,7 @@ class SiteCreateView(LoginRequiredMixin, CreateView):
                     id_site=site,
                     id_sources=source
                 )
-            
+
             source_index += 1
 
         # Save multiple related documentations
@@ -1079,11 +1077,11 @@ class SiteCreateView(LoginRequiredMixin, CreateView):
             doc_name = self.request.POST.get(f'doc_name_{doc_index}')
             if doc_name is None:
                 break
-            
+
             # Only save if at least one field is filled
             doc_author = self.request.POST.get(f'doc_author_{doc_index}')
             doc_year = self.request.POST.get(f'doc_year_{doc_index}')
-            
+
             if doc_name or doc_author or doc_year:
                 SiteRelatedDocumentation.objects.create(
                     id_site=site,
@@ -1091,7 +1089,7 @@ class SiteCreateView(LoginRequiredMixin, CreateView):
                     author=doc_author or '',
                     year=int(doc_year) if doc_year else None
                 )
-            
+
             doc_index += 1
 
         # Save multiple images
@@ -1100,7 +1098,7 @@ class SiteCreateView(LoginRequiredMixin, CreateView):
             image_type_id = self.request.POST.get(f'image_type_{image_index}')
             if image_type_id is None:
                 break
-            
+
             # Collect all image fields
             image_scale_id = self.request.POST.get(f'image_scale_{image_index}')
             file_name = self.request.POST.get(f'image_file_name_{image_index}')
@@ -1111,7 +1109,7 @@ class SiteCreateView(LoginRequiredMixin, CreateView):
             spatial_resolution = self.request.POST.get(f'image_spatial_resolution_{image_index}')
             author = self.request.POST.get(f'image_author_{image_index}')
             upload_type_img = self.request.POST.get(f'image_upload_type_{image_index}', 'url')
-            
+
             # Handle image source URL or file upload
             source_url = None
             if upload_type_img == 'url':
@@ -1123,11 +1121,11 @@ class SiteCreateView(LoginRequiredMixin, CreateView):
                     # Validate file is actually an image
                     if hasattr(image_file, 'content_type') and str(image_file.content_type).startswith('image/'):
                         source_url = save_uploaded_image(image_file, subfolder='site_images')
-            
+
             key_words = self.request.POST.get(f'image_key_words_{image_index}')
-            
+
             # Only save if at least one field is filled
-            if any([image_type_id, image_scale_id, file_name, acquisition_date, desc_image, 
+            if any([image_type_id, image_scale_id, file_name, acquisition_date, desc_image,
                     format_field, projection, spatial_resolution, author, source_url, key_words]):
                 Image.objects.create(
                     id_site=site,
@@ -1143,7 +1141,7 @@ class SiteCreateView(LoginRequiredMixin, CreateView):
                     source_url=source_url or '',
                     key_words=key_words or ''
                 )
-            
+
             image_index += 1
 
         return response
@@ -1174,36 +1172,36 @@ class SiteDetailView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         site = self.object
-        
+
         # Basic site information
         context['site_toponymy'] = SiteToponymy.objects.filter(id_site=site.id).first()
         context['interpretation'] = Interpretation.objects.filter(id_site=site.id).first()
         context['site_investigation'] = SiteInvestigation.objects.filter(id_site=site).select_related('id_investigation').first()
-        
+
         # Related evidences
         site_evidence_links = SiteArchEvidence.objects.filter(
             id_site=site
         ).select_related('id_archaeological_evidence')
         context['site_evidences'] = [link.id_archaeological_evidence for link in site_evidence_links]
-        
+
         # Related researches
         site_research_links = SiteResearch.objects.filter(id_site=site).select_related('id_research')
         context['site_researches'] = [link.id_research for link in site_research_links]
-        
+
         # Multiple bibliographies (all entries)
         site_biblios = SiteBibliography.objects.filter(id_site=site).select_related('id_bibliography')
         context['site_bibliographies'] = [sb.id_bibliography for sb in site_biblios]
-        
+
         # Multiple sources (all entries)
         site_sources = SiteSources.objects.filter(id_site=site).select_related('id_sources')
         context['site_sources'] = [ss.id_sources for ss in site_sources]
-        
+
         # Multiple related documentation (all entries)
         context['site_docs'] = SiteRelatedDocumentation.objects.filter(id_site=site)
-        
+
         # Multiple images (all entries)
         context['site_images'] = Image.objects.filter(id_site=site)
-        
+
         # Create Folium map for site geometry
         map_html = None
         if site.geometry:
@@ -1212,7 +1210,7 @@ class SiteDetailView(DetailView):
                 research_title=site.site_name or "Site Location"
             )
         context['map_html'] = map_html
-        
+
         return context
 
 
@@ -1230,31 +1228,31 @@ class SiteUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         site = self.get_object()
-        
+
         # Context data for dropdown options
         context['chronologies'] = Chronology.objects.all()
         context['source_types'] = SourcesType.objects.all()
         context['image_types'] = ImageType.objects.all()
         context['image_scales'] = ImageScale.objects.all()
-        
+
         # Get all bibliographies for this site
         site_biblios = SiteBibliography.objects.filter(id_site=site).select_related('id_bibliography')
         bibliographies = [sb.id_bibliography for sb in site_biblios]
         context['existing_bibliographies'] = bibliographies
-        
+
         # Get all sources for this site
         site_sources = SiteSources.objects.filter(id_site=site).select_related('id_sources')
         sources = [ss.id_sources for ss in site_sources]
         context['existing_sources'] = sources
-        
+
         # Get all related documentations for this site
         docs = SiteRelatedDocumentation.objects.filter(id_site=site)
         context['existing_docs'] = docs
-        
+
         # Get all images for this site
         images = Image.objects.filter(id_site=site)
         context['existing_images'] = images
-        
+
         return context
 
     def get_initial(self):
@@ -1409,7 +1407,7 @@ class SiteUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         # Update site bibliographies - remove all old ones and create new ones
         # First, delete existing bibliographies for this site
         SiteBibliography.objects.filter(id_site=site).delete()
-        
+
         # Now save all bibliographies from the form
         biblio_index = 0
         while True:
@@ -1418,11 +1416,11 @@ class SiteUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
             year = self.request.POST.get(f'biblio_year_{biblio_index}')
             doi = self.request.POST.get(f'biblio_doi_{biblio_index}')
             tipo = self.request.POST.get(f'biblio_tipo_{biblio_index}')
-            
+
             # Break if no more bibliography entries
             if title is None:
                 break
-            
+
             # Only save if at least one field is filled
             if title or author or year or doi or tipo:
                 bibliography = Bibliography.objects.create(
@@ -1436,20 +1434,20 @@ class SiteUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
                     id_site=site,
                     id_bibliography=bibliography
                 )
-            
+
             biblio_index += 1
 
         # Update site sources - remove all old ones and create new ones
         # First, delete existing sources for this site
         SiteSources.objects.filter(id_site=site).delete()
-        
+
         # Now save all sources from the form
         source_index = 0
         while True:
             source_name = self.request.POST.get(f'source_name_{source_index}')
             if source_name is None:
                 break
-            
+
             # Collect all source fields
             chronology_id = self.request.POST.get(f'source_chronology_{source_index}')
             source_type_id = self.request.POST.get(f'source_type_{source_index}')
@@ -1464,24 +1462,24 @@ class SiteUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
                     id_site=site,
                     id_sources=source
                 )
-            
+
             source_index += 1
 
         # Update site related documentation - remove all old ones and create new ones
         # First, delete existing docs for this site
         SiteRelatedDocumentation.objects.filter(id_site=site).delete()
-        
+
         # Now save all docs from the form
         doc_index = 0
         while True:
             doc_name = self.request.POST.get(f'doc_name_{doc_index}')
             if doc_name is None:
                 break
-            
+
             # Only save if at least one field is filled
             doc_author = self.request.POST.get(f'doc_author_{doc_index}')
             doc_year = self.request.POST.get(f'doc_year_{doc_index}')
-            
+
             if doc_name or doc_author or doc_year:
                 SiteRelatedDocumentation.objects.create(
                     id_site=site,
@@ -1489,20 +1487,20 @@ class SiteUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
                     author=doc_author or '',
                     year=int(doc_year) if doc_year else None
                 )
-            
+
             doc_index += 1
 
         # Update site related images - remove all old ones and create new ones
         # First, delete existing images for this site
         Image.objects.filter(id_site=site).delete()
-        
+
         # Now save all images from the form
         image_index = 0
         while True:
             image_type_id = self.request.POST.get(f'image_type_{image_index}')
             if image_type_id is None:
                 break
-            
+
             # Collect all image fields
             image_scale_id = self.request.POST.get(f'image_scale_{image_index}')
             file_name = self.request.POST.get(f'image_file_name_{image_index}')
@@ -1513,7 +1511,7 @@ class SiteUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
             spatial_resolution = self.request.POST.get(f'image_spatial_resolution_{image_index}')
             author = self.request.POST.get(f'image_author_{image_index}')
             upload_type_img = self.request.POST.get(f'image_upload_type_{image_index}', 'url')
-            
+
             # Handle image source URL or file upload
             source_url = None
             if upload_type_img == 'url':
@@ -1525,11 +1523,11 @@ class SiteUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
                     # Validate file is actually an image
                     if hasattr(image_file, 'content_type') and str(image_file.content_type).startswith('image/'):
                         source_url = save_uploaded_image(image_file, subfolder='site_images')
-            
+
             key_words = self.request.POST.get(f'image_key_words_{image_index}')
-            
+
             # Only save if at least one field is filled
-            if any([image_type_id, image_scale_id, file_name, acquisition_date, desc_image, 
+            if any([image_type_id, image_scale_id, file_name, acquisition_date, desc_image,
                     format_field, projection, spatial_resolution, author, source_url, key_words]):
                 Image.objects.create(
                     id_site=site,
@@ -1545,7 +1543,7 @@ class SiteUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
                     source_url=source_url or '',
                     key_words=key_words or ''
                 )
-            
+
             image_index += 1
 
         return response
@@ -1644,11 +1642,11 @@ class EvidenceCreateView(LoginRequiredMixin, CreateView):
             year = self.request.POST.get(f'ev_biblio_year_{biblio_index}')
             doi = self.request.POST.get(f'ev_biblio_doi_{biblio_index}')
             tipo = self.request.POST.get(f'ev_biblio_tipo_{biblio_index}')
-            
+
             # Break if no more bibliography entries
             if title is None:
                 break
-            
+
             # Only save if at least one field is filled
             if title or author or year or doi or tipo:
                 bibliography = Bibliography.objects.create(
@@ -1662,7 +1660,7 @@ class EvidenceCreateView(LoginRequiredMixin, CreateView):
                     id_archaeological_evidence=arch_ev,
                     id_bibliography=bibliography
                 )
-            
+
             biblio_index += 1
 
         # Save sources - using multi-entry pattern from form
@@ -1709,7 +1707,7 @@ class EvidenceCreateView(LoginRequiredMixin, CreateView):
             file_name = self.request.POST.get(f'ev_image_file_name_{ev_image_index}')
             if file_name is None:
                 break
-            
+
             # Get all image fields
             image_type_id = self.request.POST.get(f'ev_image_type_{ev_image_index}')
             image_scale_id = self.request.POST.get(f'ev_image_scale_{ev_image_index}')
@@ -1721,7 +1719,7 @@ class EvidenceCreateView(LoginRequiredMixin, CreateView):
             author = self.request.POST.get(f'ev_image_author_{ev_image_index}')
             key_words = self.request.POST.get(f'ev_image_key_words_{ev_image_index}')
             upload_type = self.request.POST.get(f'ev_image_upload_type_{ev_image_index}', 'url')
-            
+
             # Handle URL or file upload
             source_url = None
             if upload_type == 'url':
@@ -1734,7 +1732,7 @@ class EvidenceCreateView(LoginRequiredMixin, CreateView):
                     # Validate file type and save
                     if hasattr(uploaded_file, 'content_type') and str(uploaded_file.content_type).startswith('image/'):
                         source_url = save_uploaded_image(uploaded_file, subfolder='evidence_images')
-            
+
             # Only save if at least one significant field is filled
             if file_name or image_type_id or desc_image or source_url:
                 Image.objects.create(
@@ -1751,7 +1749,7 @@ class EvidenceCreateView(LoginRequiredMixin, CreateView):
                     source_url=source_url or '',
                     key_words=key_words or ''
                 )
-            
+
             ev_image_index += 1
 
         return response
@@ -1786,27 +1784,27 @@ class EvidenceDetailView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         evidence = self.object
-        
+
         # Multiple bibliographies (all entries)
         ev_biblios = ArchEvBiblio.objects.filter(id_archaeological_evidence=evidence.id).select_related('id_bibliography')
         context['arch_ev_bibliographies'] = [eb.id_bibliography for eb in ev_biblios]
-        
+
         # Multiple sources (all entries)
         ev_sources = ArchEvSources.objects.filter(id_archaeological_evidence=evidence.id).select_related('id_sources')
         context['arch_ev_sources'] = [es.id_sources for es in ev_sources]
-        
+
         # Multiple related documentation (all entries)
         context['arch_ev_related_docs'] = ArchEvRelatedDoc.objects.filter(id_archaeological_evidence=evidence.id)
-        
+
         # Multiple images (all entries)
         context['evidence_images'] = Image.objects.filter(id_archaeological_evidence=evidence)
-        
+
         # Related sites
         site_links = SiteArchEvidence.objects.filter(
             id_archaeological_evidence=evidence
         ).select_related('id_site')
         context['sites'] = [link.id_site for link in site_links]
-        
+
         # Related researches (direct and via sites)
         direct_research_ids = ArchEvResearch.objects.filter(
             id_archaeological_evidence=evidence
@@ -1817,11 +1815,11 @@ class EvidenceDetailView(DetailView):
             via_sites = SiteResearch.objects.filter(id_site_id__in=site_ids).values_list('id_research_id', flat=True)
             research_ids.update(via_sites)
         context['researches'] = Research.objects.filter(id__in=research_ids) if research_ids else []
-        
+
         # Investigation information
         if evidence.id_investigation:
             context['investigation'] = evidence.id_investigation
-        
+
         # Create Folium map for evidence geometry
         map_html = None
         if evidence.geometry:
@@ -1830,7 +1828,7 @@ class EvidenceDetailView(DetailView):
                 research_title=evidence.evidence_name or "Evidence Location"
             )
         context['map_html'] = map_html
-        
+
         return context
 
 class EvidenceUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
@@ -1923,7 +1921,7 @@ class EvidenceUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         geometry = form.cleaned_data.get('geometry')
         if not geometry or geometry.strip() == '':
             form.instance.geometry = None
-        
+
         response = super().form_valid(form)
         arch_ev = self.object
 
@@ -1945,7 +1943,7 @@ class EvidenceUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         # Save/update Multiple Bibliographies - remove all old ones and create new ones
         # First, delete existing bibliographies for this evidence
         ArchEvBiblio.objects.filter(id_archaeological_evidence=arch_ev).delete()
-        
+
         # Now save all bibliographies from the form
         biblio_index = 0
         while True:
@@ -1954,11 +1952,11 @@ class EvidenceUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
             year = self.request.POST.get(f'ev_biblio_year_{biblio_index}')
             doi = self.request.POST.get(f'ev_biblio_doi_{biblio_index}')
             tipo = self.request.POST.get(f'ev_biblio_tipo_{biblio_index}')
-            
+
             # Break if no more bibliography entries
             if title is None:
                 break
-            
+
             # Only save if at least one field is filled
             if title or author or year or doi or tipo:
                 bibliography = Bibliography.objects.create(
@@ -1972,7 +1970,7 @@ class EvidenceUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
                     id_archaeological_evidence=arch_ev,
                     id_bibliography=bibliography
                 )
-            
+
             biblio_index += 1
 
         # Save/update Multiple Sources - remove all old and create new ones
@@ -2022,7 +2020,7 @@ class EvidenceUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
             file_name = self.request.POST.get(f'ev_image_file_name_{ev_image_index}')
             if file_name is None:
                 break
-            
+
             # Get all image fields
             image_type_id = self.request.POST.get(f'ev_image_type_{ev_image_index}')
             image_scale_id = self.request.POST.get(f'ev_image_scale_{ev_image_index}')
@@ -2034,7 +2032,7 @@ class EvidenceUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
             author = self.request.POST.get(f'ev_image_author_{ev_image_index}')
             key_words = self.request.POST.get(f'ev_image_key_words_{ev_image_index}')
             upload_type = self.request.POST.get(f'ev_image_upload_type_{ev_image_index}', 'url')
-            
+
             # Handle URL or file upload
             source_url = None
             if upload_type == 'url':
@@ -2047,7 +2045,7 @@ class EvidenceUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
                     # Validate file type and save
                     if hasattr(uploaded_file, 'content_type') and str(uploaded_file.content_type).startswith('image/'):
                         source_url = save_uploaded_image(uploaded_file, subfolder='evidence_images')
-            
+
             # Only save if at least one significant field is filled
             if file_name or image_type_id or desc_image or source_url:
                 Image.objects.create(
@@ -2064,7 +2062,7 @@ class EvidenceUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
                     source_url=source_url or '',
                     key_words=key_words or ''
                 )
-            
+
             ev_image_index += 1
 
         return response
@@ -2141,29 +2139,29 @@ def search_users_autocomplete(request):
     Searches by surname, username, or email.
     """
     query = request.GET.get('q', '').strip()
-    
+
     if len(query) < 2:
         return JsonResponse({'results': []})
-    
+
     # Search users by surname, username, or email
     users = User.objects.filter(
         models.Q(last_name__icontains=query) |
         models.Q(username__icontains=query) |
         models.Q(email__icontains=query)
     ).select_related('profile')[:10]
-    
+
     results = []
     for user in users:
         # Get user profile info if available
         affiliation = ''
         orcid = ''
-        
+
         if hasattr(user, 'profile'):
             affiliation = getattr(user.profile, 'affiliation', '') or ''
             orcid = getattr(user.profile, 'orcid', '') or ''
-        
+
         # User is the single source of truth for author data (no Author table)
-        
+
         results.append({
             'user_id': user.id,
             'username': user.username,
@@ -2174,7 +2172,7 @@ def search_users_autocomplete(request):
             'affiliation': affiliation,
             'orcid': orcid,
         })
-    
+
     return JsonResponse({'results': results})
 
 
@@ -2188,18 +2186,18 @@ def database_browser(request):
     # Get all table names from the database
     with connection.cursor() as cursor:
         cursor.execute("""
-            SELECT table_name 
-            FROM information_schema.tables 
-            WHERE table_schema = 'public' 
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = 'public'
             AND table_type = 'BASE TABLE'
             ORDER BY table_name;
         """)
         tables = [row[0] for row in cursor.fetchall()]
-    
+
     # Get the selected table (from query parameter)
     selected_table = request.GET.get('table', None)
     page_number = request.GET.get('page', 1)
-    
+
     table_data = None
     columns = None
     paginator = None
@@ -2208,22 +2206,21 @@ def database_browser(request):
     total_rows = 0
     foreign_keys_info = {}
     display_columns = {}
-    related_data_cache = {}
-    
+
     if selected_table and selected_table in tables:
         from psycopg2 import sql
-        
+
         # Get column names and data types
         with connection.cursor() as cursor:
             cursor.execute("""
-                SELECT column_name, data_type 
-                FROM information_schema.columns 
-                WHERE table_schema = 'public' 
+                SELECT column_name, data_type
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
                 AND table_name = %s
                 ORDER BY ordinal_position;
             """, [selected_table])
             columns = cursor.fetchall()
-        
+
         # Get foreign key relationships
         with connection.cursor() as cursor:
             cursor.execute("""
@@ -2243,14 +2240,14 @@ def database_browser(request):
                     AND tc.table_schema = 'public';
             """, [selected_table])
             fk_relations = cursor.fetchall()
-            
+
             # Build foreign keys info dictionary
             for fk_col, ref_table, ref_col in fk_relations:
                 foreign_keys_info[fk_col] = {
                     'referenced_table': ref_table,
                     'referenced_column': ref_col
                 }
-        
+
         # For each foreign key, determine which column to display from the referenced table
         # Try common patterns: name, title, description, etc.
         display_columns = {}
@@ -2259,12 +2256,12 @@ def database_browser(request):
             with connection.cursor() as cursor:
                 # Try to find a display column (name, title, description, etc.)
                 cursor.execute("""
-                    SELECT column_name 
-                    FROM information_schema.columns 
-                    WHERE table_schema = 'public' 
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_schema = 'public'
                     AND table_name = %s
-                    AND column_name IN ('name', 'title', 'description', 'denominazione_regione', 
-                                        'denominazione_provincia', 'denominazione_comune', 
+                    AND column_name IN ('name', 'title', 'description', 'denominazione_regione',
+                                        'denominazione_provincia', 'denominazione_comune',
                                         'site_name', 'desc_positioning_mode', 'desc_physiography',
                                         'desc_base_map', 'desc_first_discovery_method', 'desc_investigation_type',
                                         'chronological_period', 'name_country', 'username', 'surname')
@@ -2285,9 +2282,9 @@ def database_browser(request):
                 else:
                     # Fallback: use the first text/varchar column
                     cursor.execute("""
-                        SELECT column_name 
-                        FROM information_schema.columns 
-                        WHERE table_schema = 'public' 
+                        SELECT column_name
+                        FROM information_schema.columns
+                        WHERE table_schema = 'public'
                         AND table_name = %s
                         AND data_type IN ('text', 'character varying', 'varchar', 'char')
                         ORDER BY ordinal_position
@@ -2299,21 +2296,21 @@ def database_browser(request):
                     else:
                         # Last resort: use the referenced column itself
                         display_columns[fk_col] = fk_info['referenced_column']
-        
+
         # Get row count
         with connection.cursor() as cursor:
             cursor.execute(
                 sql.SQL("SELECT COUNT(*) FROM {}").format(sql.Identifier(selected_table))
             )
             total_rows = cursor.fetchone()[0]
-        
+
         # Build query with LEFT JOINs for foreign keys
         offset = (int(page_number) - 1) * 100
-        
+
         # Start building the SELECT clause
         select_parts = [sql.SQL("{}.*").format(sql.Identifier(selected_table))]
         join_parts = []
-        
+
         # Add JOINs for each foreign key
         for fk_col, fk_info in foreign_keys_info.items():
             ref_table = fk_info['referenced_table']
@@ -2321,7 +2318,7 @@ def database_browser(request):
             display_col = display_columns.get(fk_col, ref_col)
             alias = f"fk_{fk_col}"
             display_alias = f"{fk_col}_display"
-            
+
             # Add display column to SELECT
             select_parts.append(
                 sql.SQL("{}.{} AS {}").format(
@@ -2330,7 +2327,7 @@ def database_browser(request):
                     sql.Identifier(display_alias)
                 )
             )
-            
+
             # Add JOIN
             join_parts.append(
                 sql.SQL("LEFT JOIN {} AS {} ON {}.{} = {}.{}").format(
@@ -2348,29 +2345,29 @@ def database_browser(request):
             sql.Identifier(selected_table),
             sql.SQL(" ").join(join_parts) if join_parts else sql.SQL("")
         )
-        
+
         # Execute query
         with connection.cursor() as cursor:
             cursor.execute(query, [offset])
             table_data = cursor.fetchall()
-            
+
             # Get column names for display
             col_names = [desc[0] for desc in cursor.description]
-        
+
         # Process table data to combine foreign key IDs with their display values
         processed_data = []
         for row in table_data:
             processed_row = []
             row_dict = dict(zip(col_names, row))
-            
+
             for col_name in col_names:
                 if col_name.endswith('_display'):
                     # Skip display columns, they'll be shown with their IDs
                     continue
-                
+
                 value = row_dict.get(col_name)
                 display_value = row_dict.get(f"{col_name}_display")
-                
+
                 if col_name in foreign_keys_info:
                     # This is a foreign key column
                     processed_row.append({
@@ -2386,19 +2383,19 @@ def database_browser(request):
                         'display': None,
                         'is_fk': False
                     })
-            
+
             processed_data.append(processed_row)
-        
+
         # Filter column names to exclude _display columns
         display_col_names = [col for col in col_names if not col.endswith('_display')]
-        
+
         # Create paginator
         paginator = Paginator(range(total_rows), 100)
         page_obj = paginator.get_page(page_number)
     else:
         processed_data = None
         display_col_names = None
-    
+
     context = {
         'tables': tables,
         'selected_table': selected_table,
@@ -2410,7 +2407,7 @@ def database_browser(request):
         'foreign_keys_info': foreign_keys_info,
         'display_columns': display_columns,
     }
-    
+
     return render(request, 'frontend/database_browser.html', context)
 
 
@@ -2420,7 +2417,7 @@ class AdminOnlyMixin(UserPassesTestMixin):
     """Mixin to restrict access to admin users only"""
     def test_func(self):
         return self.request.user.is_staff
-    
+
     def handle_no_permission(self):
         messages.error(self.request, "You do not have permission to access this page. Admin access required.")
         return redirect('home')
@@ -2434,7 +2431,7 @@ class AuditLogListView(LoginRequiredMixin, AdminOnlyMixin, ListView):
     paginate_by = 50
     template_name = 'frontend/audit_log_list.html'
     context_object_name = 'logs'
-    
+
     def get_queryset(self):
         queryset = AuditLog.objects.all().select_related('user')
 
@@ -2466,17 +2463,17 @@ class AuditLogListView(LoginRequiredMixin, AdminOnlyMixin, ListView):
         context['create_count'] = all_logs.filter(operation='CREATE').count()
         context['update_count'] = all_logs.filter(operation='UPDATE').count()
         context['delete_count'] = all_logs.filter(operation='DELETE').count()
-        
+
         # Add filter values
         context['selected_operation'] = self.request.GET.get('operation', '')
         context['selected_model'] = self.request.GET.get('model', '')
         context['selected_user'] = self.request.GET.get('user', '')
         context['selected_days'] = self.request.GET.get('days', '30')
-        
+
         # Add available models
         context['models'] = sorted(set(all_logs.values_list('model_name', flat=True)))
         context['users'] = User.objects.filter(is_active=True).order_by('username')
-        
+
         return context
 
 
@@ -2505,14 +2502,14 @@ def audit_log_export(request):
     if days.isdigit():
         since = timezone.now() - timedelta(days=int(days))
         queryset = queryset.filter(timestamp__gte=since)
-    
+
     # Create CSV response
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="audit_logs.csv"'
-    
+
     writer = csv.writer(response)
     writer.writerow(['Timestamp', 'User', 'Operation', 'Model', 'Object ID', 'Object', 'Changes', 'IP Address'])
-    
+
     for log in queryset.order_by('-timestamp'):
         writer.writerow([
             log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
@@ -2524,11 +2521,8 @@ def audit_log_export(request):
             log.get_changes_display,
             log.ip_address or 'N/A',
         ])
-    
+
     return response
-
-
-import subprocess
 
 
 def is_staff(user):
@@ -2791,9 +2785,9 @@ def api_sites_list(request):
     try:
         # Fetch ALL sites from database using model instances
         sites_query = Site.objects.all().order_by('site_name')
-        
+
         print(f"[API] Total sites in database: {sites_query.count()}")
-        
+
         sites_list = []
         for site in sites_query:
             site_display = {
@@ -2803,9 +2797,9 @@ def api_sites_list(request):
             }
             sites_list.append(site_display)
             print(f"[API] Added site: {site_display}")
-        
+
         print(f"[API] Total sites to return: {len(sites_list)}")
-        
+
         return JsonResponse({
             'success': True,
             'count': len(sites_list),
@@ -2816,7 +2810,7 @@ def api_sites_list(request):
         print(f"[API ERROR] {str(e)}")
         traceback.print_exc()
         return JsonResponse({
-            'error': str(e), 
+            'error': str(e),
             'success': False
         }, status=500)
 
@@ -2826,9 +2820,9 @@ def api_evidence_list(request):
     try:
         # Fetch ALL archaeological evidence from database using model instances
         evidence_query = ArchaeologicalEvidence.objects.all().order_by('evidence_name')
-        
+
         print(f"[API] Total evidence in database: {evidence_query.count()}")
-        
+
         evidence_list = []
         for evidence in evidence_query:
             evidence_display = {
@@ -2838,9 +2832,9 @@ def api_evidence_list(request):
             }
             evidence_list.append(evidence_display)
             print(f"[API] Added evidence: {evidence_display}")
-        
+
         print(f"[API] Total evidence to return: {len(evidence_list)}")
-        
+
         return JsonResponse({
             'success': True,
             'count': len(evidence_list),
@@ -2851,7 +2845,7 @@ def api_evidence_list(request):
         print(f"[API ERROR] {str(e)}")
         traceback.print_exc()
         return JsonResponse({
-            'error': str(e), 
+            'error': str(e),
             'success': False
         }, status=500)
 
@@ -2860,29 +2854,29 @@ def api_site_research_create(request):
     """API endpoint to create a SiteResearch relation"""
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
-    
+
     if not request.user.is_authenticated or (not request.user.is_staff and not request.user.is_superuser):
         return JsonResponse({'error': 'Permission denied'}, status=403)
-    
+
     try:
         import json
         data = json.loads(request.body)
-        
+
         site_id = data.get('id_site')
         research_id = data.get('id_research')
-        
+
         if not site_id or not research_id:
             return JsonResponse({'error': 'Missing required fields'}, status=400)
-        
+
         # Check if relation already exists
         if SiteResearch.objects.filter(id_site=site_id, id_research=research_id).exists():
             return JsonResponse({'error': 'This site is already linked to this research'}, status=400)
-        
+
         # Create the relation
         site_research = SiteResearch(id_site_id=site_id, id_research_id=research_id)
         site_research.full_clean()
         site_research.save()
-        
+
         return JsonResponse({'success': True, 'id': site_research.id})
     except ValidationError as e:
         return JsonResponse({'error': str(e)}, status=400)
@@ -2898,29 +2892,29 @@ def api_site_evidence_create(request):
     """API endpoint to create a SiteArchEvidence relation"""
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
-    
+
     if not request.user.is_authenticated or (not request.user.is_staff and not request.user.is_superuser):
         return JsonResponse({'error': 'Permission denied'}, status=403)
-    
+
     try:
         import json
         data = json.loads(request.body)
-        
+
         site_id = data.get('id_site')
         evidence_id = data.get('id_archaeological_evidence')
-        
+
         if not site_id or not evidence_id:
             return JsonResponse({'error': 'Missing required fields'}, status=400)
-        
+
         # Check if relation already exists
         if SiteArchEvidence.objects.filter(id_site=site_id, id_archaeological_evidence=evidence_id).exists():
             return JsonResponse({'error': 'This evidence is already linked to this site'}, status=400)
-        
+
         # Create the relation
         site_evidence = SiteArchEvidence(id_site_id=site_id, id_archaeological_evidence_id=evidence_id)
         site_evidence.full_clean()
         site_evidence.save()
-        
+
         return JsonResponse({'success': True, 'id': site_evidence.id})
     except ValidationError as e:
         return JsonResponse({'error': str(e)}, status=400)
@@ -2935,49 +2929,49 @@ def api_research_evidence_create(request):
     """API endpoint to create an ArchEvResearch relation"""
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
-    
+
     if not request.user.is_authenticated or (not request.user.is_staff and not request.user.is_superuser):
         return JsonResponse({'error': 'Permission denied'}, status=403)
-    
+
     try:
         import json
         data = json.loads(request.body)
-        
+
         print(f"[API DEBUG] Received data: {data}")
-        
+
         research_id = data.get('id_research')
         evidence_id = data.get('id_archaeological_evidence')
-        
+
         print(f"[API DEBUG] research_id: {research_id}, evidence_id: {evidence_id}")
-        
+
         if not research_id or not evidence_id:
             return JsonResponse({'error': 'Missing required fields'}, status=400)
-        
+
         # Verify the research exists
         try:
-            research = Research.objects.get(id=research_id)
+            Research.objects.get(id=research_id)
         except Research.DoesNotExist:
             return JsonResponse({'error': 'Research not found'}, status=404)
-        
+
         # Verify the evidence exists
         try:
             evidence = ArchaeologicalEvidence.objects.get(id=evidence_id)
         except ArchaeologicalEvidence.DoesNotExist:
             return JsonResponse({'error': 'Evidence not found'}, status=404)
-        
+
         # Check if relation already exists
         if ArchEvResearch.objects.filter(id_research=research_id, id_archaeological_evidence=evidence_id).exists():
             return JsonResponse({'error': 'This evidence is already linked to this research'}, status=400)
-        
+
         # Create the relation - id_research is IntegerField, id_archaeological_evidence is ForeignKey
         research_evidence = ArchEvResearch(
             id_research=research_id,
             id_archaeological_evidence=evidence
         )
         research_evidence.save()
-        
+
         print(f"[API DEBUG] Successfully created relation: {research_evidence.id}")
-        
+
         return JsonResponse({'success': True, 'id': research_evidence.id})
     except ValidationError as e:
         print(f"[API ERROR] ValidationError: {e}")
@@ -3293,10 +3287,10 @@ def api_debug_data(request):
     try:
         sites_count = Site.objects.count()
         evidence_count = ArchaeologicalEvidence.objects.count()
-        
+
         first_5_sites = list(Site.objects.all()[:5].values('id', 'site_name', 'locality_name'))
         first_5_evidence = list(ArchaeologicalEvidence.objects.all()[:5].values('id', 'evidence_name', 'description'))
-        
+
         return JsonResponse({
             'database_status': 'connected',
             'sites': {

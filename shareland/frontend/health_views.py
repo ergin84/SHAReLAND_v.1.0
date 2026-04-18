@@ -5,7 +5,6 @@ import logging
 import psutil
 from django.http import JsonResponse
 from django.db import connection
-from django.conf import settings
 from django.views.decorators.http import require_GET
 from django.views.decorators.cache import never_cache
 
@@ -23,9 +22,9 @@ def health_check(request):
         'status': 'healthy',
         'checks': {}
     }
-    
+
     is_healthy = True
-    
+
     # Check database connection
     try:
         with connection.cursor() as cursor:
@@ -41,7 +40,7 @@ def health_check(request):
             'message': str(e)
         }
         is_healthy = False
-    
+
     # Check disk space
     try:
         disk = psutil.disk_usage('/')
@@ -59,7 +58,7 @@ def health_check(request):
             'status': 'error',
             'message': str(e)
         }
-    
+
     # Check memory usage
     try:
         memory = psutil.virtual_memory()
@@ -77,7 +76,7 @@ def health_check(request):
             'status': 'error',
             'message': str(e)
         }
-    
+
     # Check CPU usage
     try:
         cpu_percent = psutil.cpu_percent(interval=1)
@@ -91,12 +90,12 @@ def health_check(request):
             'status': 'error',
             'message': str(e)
         }
-    
+
     # Set overall status
     if not is_healthy:
         health_status['status'] = 'unhealthy'
         return JsonResponse(health_status, status=503)
-    
+
     return JsonResponse(health_status, status=200)
 
 

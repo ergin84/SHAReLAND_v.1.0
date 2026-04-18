@@ -5,7 +5,6 @@
 #   * Make sure each ForeignKey and OneToOneField has `on_delete` set to the desired behavior
 #   * Remove `managed = False` lines if you wish to allow Django to create, modify, and delete the table
 # Feel free to rename the models, but don't rename db_table values or field names.
-import uuid
 from django.db import models
 from django.contrib.auth.models import User
 
@@ -562,7 +561,7 @@ class Research(models.Model):
 class ResearchAuthor(models.Model):
     id_research = models.ForeignKey(Research, on_delete=models.CASCADE, db_column='id_research', blank=True, null=True)
     # id_author now points to User (auth_user table), column is id_author_id in database
-    id_author = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True, 
+    id_author = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True,
                                  related_name='research_authorships')
 
     class Meta:

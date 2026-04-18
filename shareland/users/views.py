@@ -24,7 +24,7 @@ def register(request):
                 profile.affiliation = form.cleaned_data.get('affiliation', '') or None
                 profile.orcid = form.cleaned_data.get('orcid', '') or None
                 profile.save()
-                
+
                 username = form.cleaned_data.get('username')
                 messages.success(request, f'Account created for {username}. Awaiting admin approval.')
                 return redirect('login')
@@ -49,7 +49,7 @@ def register(request):
 def profile(request):
     # Ensure profile exists
     user_profile, created = Profile.objects.get_or_create(user=request.user)
-    
+
     if request.method == 'POST':
         u_form = UserUpdateForm(request.POST, instance=request.user)
         p_form = ProfileUpdateForm(request.POST,

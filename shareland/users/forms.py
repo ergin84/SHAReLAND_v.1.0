@@ -11,8 +11,8 @@ class UserRegisterForm(UserCreationForm):
     surname = forms.CharField(max_length=100, required=True, label='Surname')
     affiliation = forms.CharField(max_length=200, required=False, label='Affiliation')
     orcid = forms.CharField(
-        max_length=19, 
-        required=False, 
+        max_length=19,
+        required=False,
         label='ORCID',
         help_text='ORCID ID (e.g., 0000-0000-0000-0000). Optional.',
         widget=forms.TextInput(attrs={'placeholder': '0000-0000-0000-0000'})
@@ -21,7 +21,7 @@ class UserRegisterForm(UserCreationForm):
     class Meta:
         model = User
         fields = ['username', 'email', 'name', 'surname', 'affiliation', 'orcid', 'password1', 'password2']
-        
+
     def clean_email(self):
         email = self.cleaned_data.get('email', '').strip()
         if email:
@@ -29,7 +29,7 @@ class UserRegisterForm(UserCreationForm):
             if User.objects.filter(email=email).exists():
                 raise forms.ValidationError('This email address is already registered. Please use a different email or try logging in.')
         return email
-    
+
     def clean_orcid(self):
         orcid = self.cleaned_data.get('orcid', '').strip()
         if orcid:

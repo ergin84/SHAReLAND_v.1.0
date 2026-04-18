@@ -8,8 +8,8 @@ class SEOMetaTags:
     """
     Class to manage SEO meta tags for different pages
     """
-    def __init__(self, title=None, description=None, keywords=None, 
-                 image=None, url=None, article_published_time=None, 
+    def __init__(self, title=None, description=None, keywords=None,
+                 image=None, url=None, article_published_time=None,
                  article_modified_time=None, article_author=None):
         self.title = title or "SHAReLAND - Archaeological Research Database"
         self.description = description or "SHAReLAND is a comprehensive database for archaeological research, sites, and evidence. Explore archaeological findings and research data."
@@ -19,7 +19,7 @@ class SEOMetaTags:
         self.article_published_time = article_published_time
         self.article_modified_time = article_modified_time
         self.article_author = article_author
-    
+
     def get_context(self):
         """Return context dictionary for templates"""
         return {

@@ -1,8 +1,7 @@
 from django import forms
 from .models import Research, Site, ArchaeologicalEvidence, FunctionalClass, Typology, TypologyDetail, Chronology, \
-    InvestigationType, SourcesType, ImageType, ImageScale, SiteToponymy, PositioningMode, PositionalAccuracy, \
+    InvestigationType, SourcesType, ImageType, ImageScale, PositioningMode, PositionalAccuracy, \
     FirstDiscoveryMethod
-from django.contrib.gis.geos import Point
 
 class ResearchForm(forms.ModelForm):
     class Meta:
@@ -224,7 +223,7 @@ class SiteForm(forms.ModelForm):
             # Handle when prefilling - functional_class might be a model instance
             fc = self.initial['functional_class']
             functional_class_id = fc.id if hasattr(fc, 'id') else fc
-        
+
         if functional_class_id:
             self.fields['typology'].queryset = Typology.objects.filter(id_functional_class=functional_class_id)
         elif 'typology' in self.initial and self.initial['typology']:
@@ -253,7 +252,7 @@ class SiteForm(forms.ModelForm):
             # Handle when prefilling - typology might be a model instance
             typology = self.initial['typology']
             typology_id = typology.id if hasattr(typology, 'id') else typology
-        
+
         if typology_id:
             self.fields['typology_detail'].queryset = TypologyDetail.objects.filter(id_typology=typology_id)
         elif 'typology_detail' in self.initial and self.initial['typology_detail']:
@@ -287,20 +286,20 @@ class ArchaeologicalEvidenceForm(forms.ModelForm):
         required=True,
         label="Modalità di Posizionamento"
     )
-    
+
     id_positional_accuracy = forms.ModelChoiceField(
         queryset=PositionalAccuracy.objects.all(),
         required=True,
         label="Qualità del Posizionamento"
     )
-    
+
     id_first_discovery_method = forms.ModelChoiceField(
         queryset=FirstDiscoveryMethod.objects.all(),
         required=False,
         empty_label="---------",
         label="Modalità di rinvenimento (prima scoperta)"
     )
-    
+
     # Geometry field - optional since it's filled via map interaction
     geometry = forms.CharField(
         required=False,

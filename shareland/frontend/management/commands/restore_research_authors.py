@@ -6,9 +6,8 @@ from typing import Optional
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.conf import settings
-from django.contrib.auth.models import User
 
-from frontend.models import Research, ResearchAuthor
+from frontend.models import Research
 
 
 class Command(BaseCommand):
@@ -90,13 +89,13 @@ class Command(BaseCommand):
                             continue
 
                         try:
-                            author_uuid = uuid.UUID(str(author_id_raw))
+                            uuid.UUID(str(author_id_raw))
                         except Exception:
                             skipped_missing += 1
                             continue
 
                         try:
-                            research = Research.objects.get(pk=research_id)
+                            Research.objects.get(pk=research_id)
                         except Research.DoesNotExist:
                             skipped_missing += 1
                             continue
@@ -107,7 +106,7 @@ class Command(BaseCommand):
                         # This command now requires restoration via a different approach:
                         # Either provide a new CSV with user_id instead of author_uuid,
                         # or manually restore relationships from backup/archive.
-                        # 
+                        #
                         # For now, this command skips Author UUID rows as the data has been
                         # migrated and the Author table is deprecated.
                         self.stdout.write(self.style.WARNING(

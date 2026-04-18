@@ -4,7 +4,7 @@ Error handling middleware for robust application stability
 import logging
 import sys
 import traceback
-from django.http import JsonResponse, HttpResponseServerError
+from django.http import JsonResponse
 from django.shortcuts import render
 from django.conf import settings
 from django.core.exceptions import PermissionDenied, SuspiciousOperation
@@ -29,7 +29,7 @@ class ErrorHandlingMiddleware:
 
     def handle_exception(self, request, exception):
         """Handle exceptions based on their type"""
-        
+
         # Log the full traceback
         exc_info = sys.exc_info()
         logger.error(
@@ -91,12 +91,12 @@ class ErrorHandlingMiddleware:
                     'traceback': traceback.format_exc()
                 }
             return JsonResponse(error_data, status=500)
-        
+
         context = {}
         if settings.DEBUG:
             context['exception'] = exception
             context['traceback'] = traceback.format_exc()
-        
+
         return render(request, 'errors/500.html', context, status=500)
 
 

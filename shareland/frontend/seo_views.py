@@ -5,9 +5,7 @@ from django.contrib.sitemaps import Sitemap
 from django.urls import reverse
 from django.http import HttpResponse
 from django.views.decorators.http import require_GET
-from django.conf import settings
-from .models import Research, Site, ArchaeologicalEvidence
-from datetime import datetime
+from .models import Research, Site
 
 
 class StaticViewSitemap(Sitemap):
@@ -68,5 +66,5 @@ def robots_txt(request):
         "# Crawl-delay for good behavior",
         "Crawl-delay: 1",
     ]
-    
+
     return HttpResponse("\n".join(lines), content_type="text/plain")
