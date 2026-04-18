@@ -81,4 +81,4 @@ jobs:
       # Verify all model migrations are committed (no forgotten makemigrations)
       - name: Check for missing migrations
         working-directory: shareland
-        run: python manage.py migrate --check
+        run: python manage.py makemigrations --check --dry-run
