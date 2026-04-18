@@ -78,7 +78,7 @@ jobs:
         working-directory: shareland
         run: python manage.py check --fail-level WARNING
 
-      # Verify all migrations are committed (no forgotten makemigrations)
+      # Verify all model migrations are committed (no forgotten makemigrations)
       - name: Check for missing migrations
         working-directory: shareland
         run: python manage.py migrate --check
