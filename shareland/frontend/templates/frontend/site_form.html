@@ -344,10 +344,16 @@
                         <div class="col-12">
                             <fieldset class="border rounded p-3 mb-3">
                                 <legend class="float-none w-auto px-2 small text-muted">Relationship Description</legend>
-                                <p class="text-muted small">
-                                    Descrivi la relazione tra il sito archeologico e l'ambiente circostante, incluse
-                                    eventuali caratteristiche naturali o antropiche rilevanti.
-                                </p>
+                                <div style="background: #eef6fb; border-left: 4px solid #3b82f6; border-radius: 6px; padding: 14px 18px; margin-bottom: 1rem;">
+                                    <div style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: #1d4ed8; margin-bottom: 8px; font-size: 0.85rem;">
+                                        <i class="fas fa-info-circle"></i> Prova a descrivere la relazione tra il sito e l'ambiente rispondendo a domande quali:
+                                    </div>
+                                    <ul style="margin: 0; padding-left: 1.2rem; color: #1e3a5f; font-size: 0.85rem; line-height: 1.9;">
+                                        <li>Che tipo di relazione ha/aveva il sito con l'ambiente circostante? E con altri 'elementi' culturali e/o altri siti? Perché sorge in questa determinata posizione?</li>
+                                        <li>Che tipo di risorse sono presenti vicino al sito? Come vengono/venivano sfruttate?</li>
+                                        <li>In che modo il suolo, la morfologia, l'altimetria, l'esposizione e le risorse naturali ne hanno influenzato l'esistenza e le scelte antropiche?</li>
+                                    </ul>
+                                </div>
                                 {{ form.site_environment_relationship|as_crispy_field }}
                             </fieldset>
                         </div>
@@ -1188,14 +1194,62 @@
             });
         }
         
+        // ── Django server-side error detection ───────────────────
+        // Map each field ID to the tab it lives in
+        const fieldTabMap = {
+            'id_site_name': 'general', 'id_id_country': 'general', 'id_id_region': 'general',
+            'id_id_province': 'general', 'id_id_municipality': 'general',
+            'id_locality_name': 'general', 'id_elevation': 'general',
+            'id_ancient_place_name': 'general', 'id_contemporary_place_name': 'general',
+            'id_id_positioning_mode': 'positioning', 'id_id_base_map': 'positioning',
+            'id_id_positional_accuracy': 'positioning',
+            'id_id_physiography': 'landscape', 'id_additional_topography': 'landscape',
+            'id_lat': 'landscape', 'id_lon': 'landscape',
+            'id_functional_class': 'interpretation', 'id_typology': 'interpretation',
+            'id_typology_detail': 'interpretation', 'id_chronology': 'interpretation',
+            'id_chronology_certainty_level': 'interpretation',
+            'id_site_environment_relationship': 'relationship',
+            'id_id_first_discovery_method': 'research', 'id_id_investigation': 'research',
+            'id_description': 'documentation',
+            'id_notes': 'notes',
+        };
+        const tabsWithDjangoErrors = new Set();
+        // Django crispy adds .is-invalid to the field, or wraps in .has-error
+        document.querySelectorAll('.is-invalid, .has-error input, .has-error select, .has-error textarea, .errorlist').forEach(el => {
+            const fieldEl = el.closest('[id^="div_id_"]') || el.closest('.form-group');
+            if (fieldEl) {
+                // extract field id from wrapper like "div_id_site_name" → "id_site_name"
+                const match = (fieldEl.id || '').match(/^div_(id_.+)$/);
+                const fieldId = match ? match[1] : null;
+                if (fieldId && fieldTabMap[fieldId]) {
+                    tabsWithDjangoErrors.add(fieldTabMap[fieldId]);
+                }
+            }
+            // also try the element itself
+            if (el.id && fieldTabMap[el.id]) {
+                tabsWithDjangoErrors.add(fieldTabMap[el.id]);
+            }
+        });
+        // Mark tabs that have Django errors and jump to the first one
+        let firstErrorTabIndex = -1;
+        tabsWithDjangoErrors.forEach(tabName => {
+            const idx = tabOrder.indexOf(tabName);
+            if (idx >= 0) {
+                updateTabStatus(idx, true);
+                if (firstErrorTabIndex === -1 || idx < firstErrorTabIndex) {
+                    firstErrorTabIndex = idx;
+                }
+            }
+        });
+
         // Initialize - ensure we're on the last tab if this is an update form
-        // Check if form has an object (update) vs new (create)
         const isUpdateForm = form.querySelector('input[name="csrfmiddlewaretoken"]') && window.location.pathname.includes('/update/');
-        if (isUpdateForm) {
-            // For update forms, start on last tab to show Save button immediately
+        if (firstErrorTabIndex >= 0) {
+            // Django returned errors: jump straight to the first offending tab
+            showTab(firstErrorTabIndex);
+        } else if (isUpdateForm) {
             showTab(tabOrder.length - 1);
         } else {
-            // For create forms, start on first tab
             showTab(0);
         }
         
@@ -1710,11 +1764,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     mapModal.addEventListener('shown.bs.modal', () => {
         if (!mapInitialized) {
-            const map = L.map('map').setView([43.7696, 11.2558], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors'
+            const map = L.map('map').setView([43.7696, 11.2558], 6);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
             }).addTo(map);
             map.invalidateSize();
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    pos => map.setView([pos.coords.latitude, pos.coords.longitude], 13),
+                    () => {}
+                );
+            }
 
             const drawnItems = new L.FeatureGroup();
             map.addLayer(drawnItems);
@@ -1770,11 +1830,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('uploadShapefileModal').addEventListener('shown.bs.modal', () => {
         if (!shpMap) {
-            shpMap = L.map('shapefileMap').setView([43.7696, 11.2558], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            shpMap = L.map('shapefileMap').setView([43.7696, 11.2558], 6);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
                 attribution: '&copy; OpenStreetMap'
             }).addTo(shpMap);
             shpMap.invalidateSize();
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    pos => shpMap.setView([pos.coords.latitude, pos.coords.longitude], 13),
+                    () => {}
+                );
+            }
         }
     });
 

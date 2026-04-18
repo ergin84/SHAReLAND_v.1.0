@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-check:
+    name: Lint & Django system check
+    runs-on: ubuntu-latest
+
+    # PostGIS service container — required by GeoDjango for "manage.py check"
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_USER: ci_user
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: ci_shareland
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      DJANGO_SETTINGS_MODULE: ShareLand.settings
+      DB_NAME: ci_shareland
+      DB_USER: ci_user
+      DB_PASSWORD: ci_password
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DEBUG: "True"
+      SECRET_KEY: ci-only-insecure-key-not-used-in-production
+      ALLOWED_HOSTS: localhost,127.0.0.1
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: shareland/requirements.txt
+
+      # GDAL is required by GeoDjango — must be installed before pip install
+      - name: Install GDAL system dependency
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            gdal-bin \
+            libgdal-dev \
+            python3-dev \
+            build-essential
+
+      - name: Install Python dependencies
+        run: pip install --no-cache-dir -r shareland/requirements.txt
+
+      - name: Install ruff (linter)
+        run: pip install ruff
+
+      # Lint — non-blocking warnings become errors only for critical rules
+      - name: Lint with ruff
+        run: |
+          ruff check shareland/ \
+            --select E,W,F \
+            --ignore E501,W503 \
+            --exclude shareland/frontend/migrations/,shareland/users/migrations/
+
+      # Django system check — validates models, URLs, settings, middleware
+      - name: Django system check
+        working-directory: shareland
+        run: python manage.py check --fail-level WARNING
+
+      # Verify all migrations are committed (no forgotten makemigrations)
+      - name: Check for missing migrations
+        working-directory: shareland
+        run: python manage.py migrate --check

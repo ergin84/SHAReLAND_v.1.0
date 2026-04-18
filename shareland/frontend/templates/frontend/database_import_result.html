@@ -3,14 +3,30 @@
 <div class="container" style="padding: 40px 20px; max-width: 720px;">
   {% if status == 'success' %}
     <div class="alert alert-success">
-      <h4>Restore Completed</h4>
+      <h4><i class="fas fa-check-circle"></i> Restore Completed</h4>
       <p>The database was restored successfully from <strong>{{ file_name }}</strong>.</p>
     </div>
   {% else %}
     <div class="alert alert-danger">
-      <h4>Restore Failed</h4>
-      <p>{{ error_message }}</p>
+      <h4><i class="fas fa-times-circle"></i> Restore Failed</h4>
+      <pre style="white-space:pre-wrap; word-break:break-word; font-size:.85rem; margin-top:.75rem;">{{ error_message }}</pre>
     </div>
+    {% if pre_restore_backup %}
+    <div class="alert alert-warning">
+      <h5><i class="fas fa-life-ring"></i> Pre-Restore Backup Available</h5>
+      <p style="margin-bottom:.4rem;">
+        A safety backup of the database was automatically taken <strong>before</strong> the restore attempt.
+        It is saved at:
+      </p>
+      <code style="display:block; padding:.5rem .75rem; background:#fff3cd; border-radius:4px; word-break:break-all;">
+        {{ pre_restore_backup }}
+      </code>
+      <p style="margin-top:.6rem; margin-bottom:0; font-size:.88rem; color:#856404;">
+        To recover, connect to the server and run:<br>
+        <code>pg_restore -Fc -d &lt;db_name&gt; {{ pre_restore_backup }}</code>
+      </p>
+    </div>
+    {% endif %}
   {% endif %}
   <a class="btn btn-primary" href="{% url 'database_browser' %}">
     <i class="fas fa-arrow-left"></i> Back to Database Browser

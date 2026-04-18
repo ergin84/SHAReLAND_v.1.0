@@ -1,9 +1,0 @@
-id,action_time,object_id,object_repr,action_flag,change_message,content_type_id,user_id
-1,2025-05-15 09:41:34.707172+00,6,userinactive,2,"[{""changed"": {""fields"": [""Active""]}}]",6,3
-2,2025-05-26 11:18:57.094146+00,7,margherita_bottoni,2,"[{""changed"": {""fields"": [""Active"", ""Staff status"", ""Superuser status""]}}]",6,3
-3,2025-05-26 15:31:02.255663+00,8,francesco_donnabella,2,"[{""changed"": {""fields"": [""Active""]}}]",6,7
-4,2025-05-26 15:31:13.607473+00,12,Marco_Scivoletto,2,"[{""changed"": {""fields"": [""Active""]}}]",6,7
-5,2025-05-26 15:31:21.443661+00,10,ros.marsiglia,2,"[{""changed"": {""fields"": [""Active""]}}]",6,7
-6,2025-05-26 15:31:36.365894+00,9,sofia.postoncini,2,"[{""changed"": {""fields"": [""Active""]}}]",6,7
-7,2025-05-26 15:32:05.162574+00,11,Stefano_Pirocci,2,"[{""changed"": {""fields"": [""Active""]}}]",6,7
-8,2025-05-26 15:41:25.927576+00,13,Gianluca_Coppotelli,2,"[{""changed"": {""fields"": [""Active""]}}]",6,7

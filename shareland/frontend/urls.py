@@ -15,6 +15,7 @@ from .views import (
     PublicResearchDetailView,
     ResearchCatalogView,
     AuditLogListView,
+    AdminUserListView,
 )
 from . import views
 from .health_views import health_check, readiness_check, liveness_check
@@ -67,5 +68,21 @@ urlpatterns = [
     # Audit logging routes (admin only)
     path('audit-logs/', AuditLogListView.as_view(), name='audit_log_list'),
     path('audit-logs/export/', views.audit_log_export, name='audit_log_export'),
+
+    # Admin: Site Settings
+    path('manage/settings/', views.admin_site_settings, name='admin_site_settings'),
+
+    # Admin: User Management
+    path('manage/users/', AdminUserListView.as_view(), name='admin_user_list'),
+    path('manage/users/create/', views.admin_user_create, name='admin_user_create'),
+    path('manage/users/<int:pk>/edit/', views.admin_user_edit, name='admin_user_edit'),
+    path('manage/users/<int:pk>/toggle-active/', views.admin_user_toggle_active, name='admin_user_toggle_active'),
+    path('manage/users/<int:pk>/delete/', views.admin_user_delete, name='admin_user_delete'),
+
+    # Paesaggi Archeologici Condivisi
+    path('paesaggi-condivisi/', views.paesaggi_condivisi, name='paesaggi_condivisi'),
+
+    # Platform manual (authenticated users only)
+    path('manual/', views.platform_manual, name='platform_manual'),
 ]
 

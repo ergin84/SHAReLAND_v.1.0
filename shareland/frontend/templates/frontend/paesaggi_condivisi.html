@@ -1,0 +1,126 @@
+{% extends "frontend/base.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+/* ── Page layout ─────────────────────────────────────────── */
+.pc-page { max-width: 960px; margin: 0 auto; padding: 2.5rem 1rem 4rem; }
+
+/* ── Hero ────────────────────────────────────────────────── */
+.pc-hero { text-align: center; margin-bottom: 3rem; }
+.pc-eyebrow { font-size: .78rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #6366f1; margin-bottom: .5rem; }
+.pc-title { font-size: 2.2rem; font-weight: 800; color: #1e293b; margin: 0 0 .6rem; line-height: 1.2; }
+.pc-subtitle { font-size: 1rem; color: #64748b; max-width: 620px; margin: 0 auto; }
+
+/* ── Virtual tour placeholder ────────────────────────────── */
+.vt-box { background: linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #1e3a5f 100%);
+          border-radius: 16px; padding: 3.5rem 2rem; text-align: center; margin-bottom: 3rem; color: #fff; }
+.vt-icon { font-size: 3rem; margin-bottom: 1rem; opacity: .7; }
+.vt-box h3 { font-size: 1.4rem; font-weight: 700; margin: 0 0 .5rem; color: #fff !important; }
+.vt-box p  { color: rgba(255,255,255,.7); font-size: .95rem; margin: 0; }
+.vt-badge { display: inline-block; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25);
+            border-radius: 20px; padding: .35rem .9rem; font-size: .78rem; font-weight: 600;
+            letter-spacing: .06em; text-transform: uppercase; margin-top: 1.2rem; }
+
+/* ── Divider ─────────────────────────────────────────────── */
+.pc-divider { border: none; border-top: 2px solid #f1f5f9; margin: 2.5rem 0; }
+
+/* ── Activity section ────────────────────────────────────── */
+.activity-header { margin-bottom: 2rem; }
+.activity-tag { display: inline-flex; align-items: center; gap: .4rem; background: #eef2ff;
+                color: #6366f1; border-radius: 20px; padding: .3rem .85rem;
+                font-size: .78rem; font-weight: 700; margin-bottom: .75rem; }
+.activity-title { font-size: 1.55rem; font-weight: 800; color: #1e293b; margin: 0 0 .3rem; line-height: 1.25; }
+.activity-subtitle { font-size: 1rem; font-style: italic; color: #475569; margin: 0; }
+
+/* ── Content + poster layout ─────────────────────────────── */
+.activity-body { display: grid; grid-template-columns: 1fr 320px; gap: 2.5rem; align-items: start; }
+@media (max-width: 720px) { .activity-body { grid-template-columns: 1fr; } }
+
+.activity-text p { color: #374151; line-height: 1.85; font-size: .97rem; margin-bottom: 1.1rem; }
+.activity-text p:last-child { margin-bottom: 0; }
+
+/* ── Poster ──────────────────────────────────────────────── */
+.poster-wrap { position: sticky; top: 80px; }
+.poster-img { width: 100%; border-radius: 12px; box-shadow: 0 8px 40px rgba(0,0,0,.15);
+              border: 1px solid #e2e8f0; display: block; }
+.poster-placeholder { width: 100%; aspect-ratio: 3/4; border-radius: 12px; border: 2px dashed #cbd5e1;
+                      background: #f8fafc; display: flex; flex-direction: column; align-items: center;
+                      justify-content: center; gap: .75rem; color: #94a3b8; text-align: center; padding: 1.5rem; }
+.poster-placeholder i { font-size: 2rem; }
+.poster-placeholder p { font-size: .82rem; margin: 0; }
+
+/* ── Route highlight ─────────────────────────────────────── */
+.route-highlight { background: #fefce8; border: 1px solid #fde68a; border-radius: 10px;
+                   padding: 1rem 1.2rem; margin: 1.5rem 0; display: flex; gap: .75rem; align-items: flex-start; }
+.route-highlight i { color: #d97706; flex-shrink: 0; margin-top: 2px; }
+.route-highlight p { font-size: .88rem; color: #78350f; margin: 0; line-height: 1.6; }
+
+/* ── Back link ───────────────────────────────────────────── */
+.pc-back { display: inline-flex; align-items: center; gap: .4rem; color: #6366f1;
+           font-size: .88rem; font-weight: 600; text-decoration: none; margin-bottom: 1.5rem; }
+.pc-back:hover { color: #4338ca; }
+</style>
+
+<div class="pc-page">
+  <a href="{% url 'home' %}" class="pc-back"><i class="fas fa-arrow-left"></i> Home</a>
+
+  <!-- Hero -->
+  <div class="pc-hero">
+    <p class="pc-eyebrow"><i class="fas fa-map-marked-alt"></i> PhD Research</p>
+    <h1 class="pc-title">Paesaggi Archeologici Condivisi</h1>
+    <p class="pc-subtitle">Shared Archaeological Landscapes — un'infrastruttura digitale partecipativa per i paesaggi del passato.</p>
+  </div>
+
+  <!-- Virtual Tour placeholder -->
+  <div class="vt-box">
+    <div class="vt-icon"><i class="fas fa-vr-cardboard"></i></div>
+    <h3>Virtual Tour — Voyager</h3>
+    <p>Il tour virtuale è in fase di realizzazione e sarà disponibile a breve.</p>
+    <span class="vt-badge"><i class="fas fa-clock" style="margin-right:.35rem;"></i>Coming soon</span>
+  </div>
+
+  <hr class="pc-divider">
+
+  <!-- Activity: Monti Lucretili -->
+  <div id="phd-research" class="activity-header">
+    <span class="activity-tag"><i class="fas fa-hiking"></i> Attività recente</span>
+    <h2 class="activity-title">Sulle orme di un viaggiatore dell'800</h2>
+    <p class="activity-subtitle">Esplorazione e mappatura partecipata dei paesaggi dei Monti Lucretili</p>
+  </div>
+
+  <div class="activity-body">
+    <!-- Text -->
+    <div class="activity-text">
+      <p>La presente attività si colloca nell'ambito della ricerca di dottorato <em>"Paesaggi archeologici condivisi"</em>, incentrata sull'individuazione di pratiche efficaci di condivisione e riuso del dato in archeologia, nonché sulla costruzione di narrazioni storiche relative ai paesaggi oggetto di studio. L'esperienza si sviluppa in un'area selezionata dei Monti Lucretili e prevede un'attività di esplorazione e documentazione partecipata del paesaggio.</p>
+
+      <p>L'iniziativa consiste in un'escursione strutturata come ricognizione estensiva partecipativa che coinvolge comunità locali, studenti e archeologi del paesaggio.</p>
+
+      <div class="route-highlight">
+        <i class="fas fa-route"></i>
+        <p>Il percorso ricalca parte dell'itinerario seguito nel <strong>1825 da Filippo Alessandro Sebastiani</strong>, lungo il tratto montano compreso tra <strong>Roccagiovine e Marcellina</strong>. Sebastiani, appassionato di botanica e archeologia, descrive nel suo resoconto il paesaggio attraversato, restituendo osservazioni su elementi naturali, resti archeologici, insediamenti e attività economiche. Accanto a questi aspetti, emergono anche percezioni personali, impressioni e dettagli della vita quotidiana dell'epoca.</p>
+      </div>
+
+      <p>Il riuso di questa fonte storica rappresenta il punto di partenza per un confronto tra paesaggio passato e presente e per una riflessione condivisa sulle trasformazioni del territorio e sulle diverse modalità di percezione del paesaggio nel tempo.</p>
+    </div>
+
+    <!-- Poster -->
+    <div class="poster-wrap">
+      {% if poster %}
+        <img src="{{ poster.url }}" alt="Locandina – Sulle orme di un viaggiatore dell'800" class="poster-img">
+      {% else %}
+        <div class="poster-placeholder">
+          <i class="fas fa-image"></i>
+          <p><strong>Locandina dell'evento</strong></p>
+          {% if user.is_staff %}
+            <p>Carica la locandina da <a href="{% url 'admin_site_settings' %}" style="color:#6366f1;">Site Settings</a>.</p>
+          {% else %}
+            <p>Locandina in arrivo</p>
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

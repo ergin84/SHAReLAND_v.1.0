@@ -1,0 +1,436 @@
+{% extends "frontend/base.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+/* ── Layout ──────────────────────────────────────────────── */
+.manual-wrap   { display: flex; gap: 0; min-height: 80vh; max-width: 1200px; margin: 0 auto; }
+.manual-sidebar {
+  width: 260px; flex-shrink: 0;
+  background: #fff; border-right: 1px solid #e2e8f0;
+  padding: 2rem 0; position: sticky; top: 60px; align-self: flex-start;
+  max-height: calc(100vh - 60px); overflow-y: auto;
+}
+.manual-content { flex: 1; min-width: 0; padding: 2.5rem 3rem; background: #f8fafc; }
+
+/* ── Sidebar ─────────────────────────────────────────────── */
+.sidebar-title {
+  font-size: .68rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  color: #94a3b8; padding: 0 1.25rem .5rem; margin-bottom: .25rem;
+}
+.sidebar-link {
+  display: flex; align-items: center; gap: .55rem;
+  padding: .5rem 1.25rem; font-size: .85rem; font-weight: 500; color: #475569;
+  text-decoration: none; border-left: 3px solid transparent;
+  transition: all .15s;
+}
+.sidebar-link:hover  { background: #f1f5f9; color: #1e293b; border-left-color: #cbd5e1; }
+.sidebar-link.active { background: #eef2ff; color: #6366f1; border-left-color: #6366f1; font-weight: 600; }
+.sidebar-link i { width: 16px; text-align: center; flex-shrink: 0; }
+.sidebar-section { margin-bottom: .25rem; }
+.sidebar-group-label {
+  font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: #cbd5e1; padding: .9rem 1.25rem .3rem;
+}
+
+/* ── Content ─────────────────────────────────────────────── */
+.manual-section { display: none; }
+.manual-section.active { display: block; }
+
+.ms-hero { margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; }
+.ms-eyebrow { font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #6366f1; margin-bottom: .4rem; }
+.ms-title { font-size: 1.8rem; font-weight: 800; color: #1e293b; margin: 0 0 .5rem; }
+.ms-lead  { color: #64748b; font-size: 1rem; margin: 0; }
+
+h3.ms-h3 { font-size: 1.1rem; font-weight: 700; color: #1e293b; margin: 2rem 0 .75rem; display: flex; align-items: center; gap: .5rem; }
+h3.ms-h3 i { color: #6366f1; }
+h4.ms-h4 { font-size: .92rem; font-weight: 700; color: #374151; margin: 1.4rem 0 .5rem; }
+
+.ms-p  { color: #374151; line-height: 1.8; font-size: .95rem; margin-bottom: .9rem; }
+.ms-ul { color: #374151; line-height: 1.8; font-size: .95rem; padding-left: 1.4rem; margin-bottom: 1rem; }
+.ms-ul li { margin-bottom: .3rem; }
+
+/* ── Info / tip boxes ────────────────────────────────────── */
+.tip  { background: #eef6fb; border-left: 4px solid #3b82f6; border-radius: 6px; padding: .9rem 1.1rem; margin: 1rem 0; font-size: .88rem; color: #1e3a5f; }
+.tip i { margin-right: .35rem; color: #3b82f6; }
+.warn { background: #fff7ed; border-left: 4px solid #f59e0b; border-radius: 6px; padding: .9rem 1.1rem; margin: 1rem 0; font-size: .88rem; color: #78350f; }
+.warn i { margin-right: .35rem; color: #f59e0b; }
+.note { background: #f0fdf4; border-left: 4px solid #22c55e; border-radius: 6px; padding: .9rem 1.1rem; margin: 1rem 0; font-size: .88rem; color: #14532d; }
+.note i { margin-right: .35rem; color: #22c55e; }
+
+/* ── Step list ───────────────────────────────────────────── */
+.step-list { list-style: none; padding: 0; margin: 0 0 1.2rem; }
+.step-list li { display: flex; gap: 1rem; align-items: flex-start; padding: .65rem 0; border-bottom: 1px solid #f1f5f9; font-size: .92rem; color: #374151; }
+.step-list li:last-child { border-bottom: none; }
+.step-num { width: 26px; height: 26px; border-radius: 50%; background: #6366f1; color: #fff; font-size: .75rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+
+/* ── Badge ───────────────────────────────────────────────── */
+.badge-role { display: inline-block; padding: .2rem .6rem; border-radius: 12px; font-size: .72rem; font-weight: 700; }
+.badge-staff   { background: #fef3c7; color: #92400e; }
+.badge-user    { background: #e0f2fe; color: #075985; }
+.badge-all     { background: #f0fdf4; color: #166534; }
+
+@media (max-width: 768px) {
+  .manual-wrap    { flex-direction: column; }
+  .manual-sidebar { width: 100%; position: static; max-height: none; border-right: none; border-bottom: 1px solid #e2e8f0; }
+  .manual-content { padding: 1.5rem 1rem; }
+}
+</style>
+
+<div class="manual-wrap">
+
+  <!-- ── Sidebar ──────────────────────────────────────────── -->
+  <aside class="manual-sidebar">
+    <p class="sidebar-title"><i class="fas fa-book" style="margin-right:.3rem;"></i> Manuale</p>
+
+    <div class="sidebar-section">
+      <a class="sidebar-link active" href="#" onclick="showSection('intro',this)">
+        <i class="fas fa-home"></i> Introduzione
+      </a>
+    </div>
+
+    <p class="sidebar-group-label">Ricerche</p>
+    <div class="sidebar-section">
+      <a class="sidebar-link" href="#" onclick="showSection('catalog',this)">
+        <i class="fas fa-sitemap"></i> Catalogo ricerche
+      </a>
+      <a class="sidebar-link" href="#" onclick="showSection('research-create',this)">
+        <i class="fas fa-plus-circle"></i> Creare una ricerca
+      </a>
+      <a class="sidebar-link" href="#" onclick="showSection('research-manage',this)">
+        <i class="fas fa-edit"></i> Gestire le ricerche
+      </a>
+    </div>
+
+    <p class="sidebar-group-label">Siti e Evidenze</p>
+    <div class="sidebar-section">
+      <a class="sidebar-link" href="#" onclick="showSection('sites',this)">
+        <i class="fas fa-map-marked-alt"></i> Siti archeologici
+      </a>
+      <a class="sidebar-link" href="#" onclick="showSection('evidence',this)">
+        <i class="fas fa-archive"></i> Evidenze archeologiche
+      </a>
+      <a class="sidebar-link" href="#" onclick="showSection('map',this)">
+        <i class="fas fa-draw-polygon"></i> Uso della mappa
+      </a>
+    </div>
+
+    <p class="sidebar-group-label">Account</p>
+    <div class="sidebar-section">
+      <a class="sidebar-link" href="#" onclick="showSection('profile',this)">
+        <i class="fas fa-user-circle"></i> Profilo utente
+      </a>
+    </div>
+
+    {% if user.is_staff %}
+    <p class="sidebar-group-label">Amministrazione</p>
+    <div class="sidebar-section">
+      <a class="sidebar-link" href="#" onclick="showSection('admin',this)">
+        <i class="fas fa-cog"></i> Pannello admin
+      </a>
+    </div>
+    {% endif %}
+  </aside>
+
+  <!-- ── Content ──────────────────────────────────────────── -->
+  <main class="manual-content">
+
+    <!-- INTRODUZIONE -->
+    <div class="manual-section active" id="sec-intro">
+      <div class="ms-hero">
+        <p class="ms-eyebrow"><i class="fas fa-book-open"></i> Manuale utente</p>
+        <h2 class="ms-title">Benvenuto su SHAReLAND</h2>
+        <p class="ms-lead">Guida completa all'utilizzo della piattaforma per la gestione e condivisione dei dati di archeologia dei paesaggi.</p>
+      </div>
+
+      <h3 class="ms-h3"><i class="fas fa-info-circle"></i> Cos'è SHAReLAND?</h3>
+      <p class="ms-p">SHAReLAND è un'infrastruttura digitale partecipativa dedicata ai paesaggi archeologici, sviluppata nell'ambito del programma di insegnamento di Archeologia dei Paesaggi dell'Università degli Studi Roma Tre. La piattaforma consente di inserire, gestire e condividere dati geografici e descrittivi relativi a ricerche, siti ed evidenze archeologiche.</p>
+
+      <h3 class="ms-h3"><i class="fas fa-layer-group"></i> Struttura della piattaforma</h3>
+      <p class="ms-p">La piattaforma è organizzata attorno a tre entità principali collegate tra loro:</p>
+      <ul class="ms-ul">
+        <li><strong>Ricerca</strong> — unità di lavoro principale. Ogni ricerca ha un titolo, parole chiave, un abstract, un tipo e un'area geografica.</li>
+        <li><strong>Sito archeologico</strong> — luogo fisico documentato. Può essere collegato a una o più ricerche.</li>
+        <li><strong>Evidenza archeologica</strong> — reperto o traccia documentata su un sito. Contiene dati di posizionamento, cronologia e tipologia.</li>
+      </ul>
+
+      <h3 class="ms-h3"><i class="fas fa-users"></i> Livelli di accesso</h3>
+      <ul class="ms-ul">
+        <li><span class="badge-role badge-all">Tutti</span> — Visualizzazione del Catalogo pubblico delle ricerche.</li>
+        <li><span class="badge-role badge-user">Utente registrato</span> — Inserimento e gestione di ricerche, siti ed evidenze. Accesso al profilo.</li>
+        <li><span class="badge-role badge-staff">Staff / Admin</span> — Tutto quanto sopra + gestione utenti, impostazioni sito, browser database, log di audit.</li>
+      </ul>
+
+      <div class="tip"><i class="fas fa-info-circle"></i> <strong>Prima di iniziare:</strong> il tuo account deve essere attivato da un amministratore. Se dopo la registrazione non riesci ad accedere a tutte le funzioni, contatta il responsabile della piattaforma.</div>
+
+      <h3 class="ms-h3"><i class="fas fa-route"></i> Flusso di lavoro tipico</h3>
+      <ol class="step-list">
+        <li><span class="step-num">1</span><div>Crea una nuova <strong>Ricerca</strong> dal menu <em>Research → New Research</em>. Inserisci titolo, tipo, parole chiave e disegna l'area geografica sulla mappa.</div></li>
+        <li><span class="step-num">2</span><div>All'interno della ricerca, aggiungi i <strong>Siti archeologici</strong> pertinenti tramite <em>Site Create</em>.</div></li>
+        <li><span class="step-num">3</span><div>Per ogni sito inserisci le <strong>Evidenze archeologiche</strong> con posizione, cronologia e tipologia.</div></li>
+        <li><span class="step-num">4</span><div>Collega siti ed evidenze alla ricerca tramite le sezioni relazionali nei rispettivi form.</div></li>
+        <li><span class="step-num">5</span><div>La ricerca sarà visibile nel <strong>Catalogo pubblico</strong> e potrà essere consultata da tutti gli utenti.</div></li>
+      </ol>
+    </div>
+
+    <!-- CATALOGO -->
+    <div class="manual-section" id="sec-catalog">
+      <div class="ms-hero">
+        <p class="ms-eyebrow"><i class="fas fa-sitemap"></i> Ricerche</p>
+        <h2 class="ms-title">Catalogo delle ricerche</h2>
+        <p class="ms-lead">Esplora tutte le ricerche inserite nella piattaforma tramite la vista ad albero interattiva.</p>
+      </div>
+
+      <h3 class="ms-h3"><i class="fas fa-map"></i> Vista ad albero con mappa</h3>
+      <p class="ms-p">Il catalogo mostra le ricerche organizzate in un pannello ad albero a sinistra e una mappa interattiva a destra. Ogni nodo dell'albero è espandibile e mostra i siti e le evidenze collegate.</p>
+      <ul class="ms-ul">
+        <li>Clicca su una <strong>ricerca</strong> nell'albero per centrate la mappa sull'area di studio.</li>
+        <li>Espandi i nodi per vedere i <strong>siti</strong> e le <strong>evidenze</strong> associate.</li>
+        <li>Clicca sui marker sulla mappa per aprire il popup con i dettagli.</li>
+        <li>Usa i controlli di zoom e i layer per navigare la mappa.</li>
+      </ul>
+
+      <h3 class="ms-h3"><i class="fas fa-search"></i> Ricerca e filtri</h3>
+      <p class="ms-p">Usa la barra di ricerca in cima alla lista per filtrare le ricerche per titolo, autore o parole chiave. I risultati si aggiornano in tempo reale.</p>
+
+      <h3 class="ms-h3"><i class="fas fa-user-edit"></i> Autori</h3>
+      <p class="ms-p">Per ogni ricerca vengono mostrati l'autore principale (dalla tabella <em>research_author</em>) e, in seconda battuta, l'utente che ha caricato i dati. Se l'autore non è registrato sulla piattaforma, viene mostrato il nome dell'uploader.</p>
+    </div>
+
+    <!-- CREARE RICERCA -->
+    <div class="manual-section" id="sec-research-create">
+      <div class="ms-hero">
+        <p class="ms-eyebrow"><i class="fas fa-plus-circle"></i> Ricerche</p>
+        <h2 class="ms-title">Creare una nuova ricerca</h2>
+        <p class="ms-lead">Inserisci i metadati della tua ricerca e definisci l'area geografica di studio.</p>
+      </div>
+
+      <h3 class="ms-h3"><i class="fas fa-list-alt"></i> Campi del form</h3>
+      <ul class="ms-ul">
+        <li><strong>Titolo</strong> — nome identificativo della ricerca (obbligatorio).</li>
+        <li><strong>Anno</strong> — anno di riferimento della ricerca (max 4 cifre).</li>
+        <li><strong>Tipo</strong> — categoria della ricerca (es. survey, scavo, telerilevamento).</li>
+        <li><strong>Parole chiave</strong> — termini separati da virgola per facilitare la ricerca nel catalogo.</li>
+        <li><strong>Abstract</strong> — descrizione sintetica degli obiettivi e dei risultati.</li>
+        <li><strong>Autori</strong> — cerca e aggiungi gli autori della ricerca tramite autocomplete.</li>
+        <li><strong>Siti collegati</strong> — associa i siti già presenti nel database alla ricerca.</li>
+      </ul>
+
+      <h3 class="ms-h3"><i class="fas fa-draw-polygon"></i> Area geografica</h3>
+      <p class="ms-p">È obbligatorio definire l'area di studio sulla mappa. Puoi:</p>
+      <ul class="ms-ul">
+        <li>Disegnare un <strong>poligono</strong> usando lo strumento di disegno nella barra a sinistra della mappa.</li>
+        <li>Caricare un file <strong>Shapefile (.zip)</strong> tramite il pulsante apposito — il sistema estrarrà automaticamente la geometria.</li>
+      </ul>
+      <div class="tip"><i class="fas fa-info-circle"></i> Lo shapefile deve essere in formato ZIP contenente almeno i file .shp, .shx e .dbf. Il sistema supporta proiezioni comuni (WGS84, UTM).</div>
+
+      <h3 class="ms-h3"><i class="fas fa-save"></i> Salvataggio</h3>
+      <p class="ms-p">Clicca <strong>Save</strong> per salvare la ricerca. Verrai reindirizzato alla pagina di dettaglio dove potrai aggiungere ulteriori informazioni.</p>
+    </div>
+
+    <!-- GESTIRE RICERCHE -->
+    <div class="manual-section" id="sec-research-manage">
+      <div class="ms-hero">
+        <p class="ms-eyebrow"><i class="fas fa-edit"></i> Ricerche</p>
+        <h2 class="ms-title">Gestire le proprie ricerche</h2>
+        <p class="ms-lead">Visualizza, modifica ed elimina le ricerche di cui sei autore.</p>
+      </div>
+
+      <h3 class="ms-h3"><i class="fas fa-list"></i> Le mie ricerche</h3>
+      <p class="ms-p">Dal menu <em>Research → My Research</em> puoi accedere all'elenco di tutte le ricerche associate al tuo account. Per ogni ricerca sono disponibili le azioni:</p>
+      <ul class="ms-ul">
+        <li><strong>Visualizza</strong> — apre la pagina di dettaglio con tutti i dati.</li>
+        <li><strong>Modifica</strong> — apre il form di aggiornamento.</li>
+        <li><strong>Elimina</strong> — rimuove definitivamente la ricerca e tutti i collegamenti.</li>
+      </ul>
+
+      <div class="warn"><i class="fas fa-exclamation-triangle"></i> <strong>Attenzione:</strong> l'eliminazione di una ricerca è irreversibile. Verranno rimossi anche tutti i collegamenti a siti ed evidenze (le entità collegate non vengono eliminate, solo il collegamento).</div>
+
+      <h3 class="ms-h3"><i class="fas fa-link"></i> Collegare siti ed evidenze</h3>
+      <p class="ms-p">Nella pagina di dettaglio di una ricerca puoi collegare siti ed evidenze già presenti nel database tramite i pannelli dedicati. Usa la funzione di ricerca per trovare le entità da collegare.</p>
+    </div>
+
+    <!-- SITI -->
+    <div class="manual-section" id="sec-sites">
+      <div class="ms-hero">
+        <p class="ms-eyebrow"><i class="fas fa-map-marked-alt"></i> Siti</p>
+        <h2 class="ms-title">Siti archeologici</h2>
+        <p class="ms-lead">Inserisci e gestisci i siti documentati nell'ambito delle tue ricerche.</p>
+      </div>
+
+      <h3 class="ms-h3"><i class="fas fa-plus"></i> Creare un sito</h3>
+      <p class="ms-p">Dal menu <em>Site Create</em> puoi inserire un nuovo sito. Il form è suddiviso in schede tematiche:</p>
+
+      <h4 class="ms-h4">Scheda: Dati generali</h4>
+      <ul class="ms-ul">
+        <li><strong>Nome sito</strong> — denominazione del sito (obbligatorio).</li>
+        <li><strong>Paese / Regione / Provincia / Comune</strong> — localizzazione amministrativa gerarchica.</li>
+        <li><strong>Località</strong> — toponimo specifico del sito.</li>
+        <li><strong>Quota</strong> — altitudine in metri sul livello del mare.</li>
+        <li><strong>Fisiografia</strong> — contesto geomorfologico del sito.</li>
+      </ul>
+
+      <h4 class="ms-h4">Scheda: Posizionamento</h4>
+      <ul class="ms-ul">
+        <li><strong>Modalità di posizionamento</strong> — come è stata determinata la posizione (GPS, mappa, ecc.).</li>
+        <li><strong>Accuratezza posizionale</strong> — grado di precisione del dato.</li>
+        <li><strong>Mappa di base</strong> — fonte cartografica utilizzata.</li>
+        <li><strong>Modalità di rinvenimento</strong> — come è stato scoperto il sito.</li>
+        <li><strong>Geometria</strong> — disegna il perimetro del sito sulla mappa o carica uno shapefile.</li>
+      </ul>
+
+      <h4 class="ms-h4">Scheda: Relazione sito-ambiente</h4>
+      <p class="ms-p">Descrivi liberamente la relazione tra il sito e il contesto paesaggistico circostante. Considera: tipo di relazione con l'ambiente, risorse sfruttate, influenza del suolo e della topografia, rapporto con l'acqua.</p>
+
+      <h4 class="ms-h4">Scheda: Research history</h4>
+      <ul class="ms-ul">
+        <li><strong>Modalità di rinvenimento</strong> — metodo usato per scoprire il sito.</li>
+        <li><strong>Indagini pregresse</strong> — elenco delle ricerche già condotte sul sito.</li>
+      </ul>
+
+      <div class="note"><i class="fas fa-check-circle"></i> Puoi salvare il sito anche con i campi facoltativi incompleti e completarli in seguito tramite la funzione di modifica.</div>
+
+      <h3 class="ms-h3"><i class="fas fa-eye"></i> Pagina di dettaglio</h3>
+      <p class="ms-p">La pagina di dettaglio del sito mostra tutte le informazioni inserite organizzate in schede, una mappa interattiva con la geometria, le ricerche collegate e le evidenze associate.</p>
+    </div>
+
+    <!-- EVIDENZE -->
+    <div class="manual-section" id="sec-evidence">
+      <div class="ms-hero">
+        <p class="ms-eyebrow"><i class="fas fa-archive"></i> Evidenze</p>
+        <h2 class="ms-title">Evidenze archeologiche</h2>
+        <p class="ms-lead">Documenta reperti, tracce e unità stratigrafiche rilevate durante le attività di ricerca.</p>
+      </div>
+
+      <h3 class="ms-h3"><i class="fas fa-plus"></i> Creare un'evidenza</h3>
+      <p class="ms-p">Accedi a <em>Evidence Create</em> per inserire una nuova evidenza. I campi principali sono:</p>
+      <ul class="ms-ul">
+        <li><strong>Nome evidenza</strong> — denominazione del reperto o della traccia.</li>
+        <li><strong>Tipologia</strong> — seleziona classe funzionale, tipologia e dettaglio tipologico tramite menu a cascata.</li>
+        <li><strong>Cronologia</strong> — periodo cronologico e livello di certezza (da 1 a 5).</li>
+        <li><strong>Modalità di posizionamento e accuratezza</strong> — come per i siti.</li>
+        <li><strong>Geometria</strong> — punto o poligono sulla mappa.</li>
+        <li><strong>Fonti</strong> — documenti, cartografia storica o altre fonti che attestano l'evidenza.</li>
+        <li><strong>Documenti correlati</strong> — riferimenti bibliografici e rapporti di scavo.</li>
+        <li><strong>Note</strong> — osservazioni libere.</li>
+      </ul>
+
+      <div class="tip"><i class="fas fa-info-circle"></i> La tipologia è organizzata in tre livelli gerarchici: <em>Classe funzionale → Tipologia → Dettaglio</em>. Seleziona prima la classe per abilitare i menu successivi.</div>
+
+      <h3 class="ms-h3"><i class="fas fa-link"></i> Collegare al sito e alla ricerca</h3>
+      <p class="ms-p">Dopo aver salvato l'evidenza, puoi collegarla a un sito e a una ricerca tramite le sezioni relazionali nella pagina di dettaglio del sito o della ricerca.</p>
+    </div>
+
+    <!-- MAPPA -->
+    <div class="manual-section" id="sec-map">
+      <div class="ms-hero">
+        <p class="ms-eyebrow"><i class="fas fa-draw-polygon"></i> Cartografia</p>
+        <h2 class="ms-title">Uso della mappa</h2>
+        <p class="ms-lead">Tutti i form con geometria utilizzano Leaflet. Ecco come disegnare e caricare geometrie.</p>
+      </div>
+
+      <h3 class="ms-h3"><i class="fas fa-mouse-pointer"></i> Strumenti di disegno</h3>
+      <ul class="ms-ul">
+        <li><strong>Poligono</strong> — clicca sui vertici per definire il perimetro, poi doppio clic per chiudere.</li>
+        <li><strong>Rettangolo</strong> — trascina per disegnare un'area rettangolare.</li>
+        <li><strong>Punto / Marker</strong> — singolo clic per posizionare un punto.</li>
+        <li><strong>Modifica</strong> — clicca su <em>Edit</em> per spostare i vertici di una geometria già disegnata.</li>
+        <li><strong>Cancella</strong> — rimuove la geometria corrente.</li>
+      </ul>
+
+      <h3 class="ms-h3"><i class="fas fa-file-upload"></i> Caricamento Shapefile</h3>
+      <ol class="step-list">
+        <li><span class="step-num">1</span><div>Prepara un file <strong>ZIP</strong> contenente i file .shp, .shx, .dbf (e opzionalmente .prj per la proiezione).</div></li>
+        <li><span class="step-num">2</span><div>Clicca sul pulsante <strong>Carica Shapefile</strong> nel form.</div></li>
+        <li><span class="step-num">3</span><div>Seleziona il file ZIP. Il sistema mostrerà una anteprima della geometria sulla mappa.</div></li>
+        <li><span class="step-num">4</span><div>Se la geometria è corretta, clicca <strong>Usa questa geometria</strong> per applicarla al form.</div></li>
+      </ol>
+      <div class="warn"><i class="fas fa-exclamation-triangle"></i> Lo shapefile deve contenere <strong>una sola geometria</strong>. In caso di geometrie multiple verrà usata la prima. Le proiezioni non-WGS84 vengono riproiettate automaticamente se il file .prj è incluso.</div>
+
+      <h3 class="ms-h3"><i class="fas fa-layer-group"></i> Layer e tile provider</h3>
+      <p class="ms-p">Le mappe usano il tile provider <strong>CARTO Positron</strong> come sfondo. Puoi navigare con zoom, pan e i controlli standard di Leaflet.</p>
+    </div>
+
+    <!-- PROFILO -->
+    <div class="manual-section" id="sec-profile">
+      <div class="ms-hero">
+        <p class="ms-eyebrow"><i class="fas fa-user-circle"></i> Account</p>
+        <h2 class="ms-title">Profilo utente</h2>
+        <p class="ms-lead">Gestisci le informazioni del tuo account e la tua immagine profilo.</p>
+      </div>
+
+      <h3 class="ms-h3"><i class="fas fa-id-card"></i> Dati personali</h3>
+      <p class="ms-p">Dal menu utente in alto a destra, seleziona <em>Profile</em> per accedere alla pagina del profilo. Puoi modificare:</p>
+      <ul class="ms-ul">
+        <li><strong>Nome e cognome</strong></li>
+        <li><strong>Email</strong></li>
+        <li><strong>Immagine profilo</strong> — carica un'immagine JPG o PNG (max consigliato: 500×500px).</li>
+        <li><strong>Affiliazione</strong> — istituzione di appartenenza.</li>
+        <li><strong>ORCID</strong> — identificativo univoco del ricercatore.</li>
+        <li><strong>Qualifica</strong> — ruolo accademico o professionale.</li>
+      </ul>
+      <div class="tip"><i class="fas fa-info-circle"></i> Tutti i campi del profilo sono facoltativi. Puoi salvare anche lasciandone alcuni vuoti.</div>
+
+      <h3 class="ms-h3"><i class="fas fa-key"></i> Password</h3>
+      <p class="ms-p">Per cambiare la password vai su <em>Profile</em> e usa il link <strong>Change password</strong>. Inserisci la vecchia password e poi quella nuova due volte per confermare.</p>
+    </div>
+
+    <!-- ADMIN -->
+    {% if user.is_staff %}
+    <div class="manual-section" id="sec-admin">
+      <div class="ms-hero">
+        <p class="ms-eyebrow"><i class="fas fa-cog"></i> Amministrazione</p>
+        <h2 class="ms-title">Pannello amministrativo</h2>
+        <p class="ms-lead">Funzionalità riservate agli utenti con permessi di staff.</p>
+      </div>
+
+      <h3 class="ms-h3"><i class="fas fa-users-cog"></i> Gestione utenti</h3>
+      <p class="ms-p">Da <em>Admin → User Management</em> puoi:</p>
+      <ul class="ms-ul">
+        <li><strong>Visualizzare</strong> tutti gli utenti registrati con stato e ruoli.</li>
+        <li><strong>Attivare / Disattivare</strong> un account (gli utenti inattivi non possono fare login).</li>
+        <li><strong>Creare</strong> nuovi utenti direttamente dall'interfaccia.</li>
+        <li><strong>Modificare</strong> dati, permessi e ruoli di un utente.</li>
+        <li><strong>Eliminare</strong> un account (operazione irreversibile).</li>
+      </ul>
+      <div class="warn"><i class="fas fa-exclamation-triangle"></i> Solo i superuser possono modificare altri superuser. Non è possibile eliminare o disattivare il proprio account.</div>
+
+      <h3 class="ms-h3"><i class="fas fa-paint-brush"></i> Impostazioni sito</h3>
+      <p class="ms-p">Da <em>Admin → Site Settings</em> puoi personalizzare:</p>
+      <ul class="ms-ul">
+        <li>Nome del sito e tagline</li>
+        <li>Logo e favicon</li>
+        <li>Colori navbar e pagina</li>
+        <li>Testo footer</li>
+        <li>Contenuti della home page (sezioni About, Key Info, Team, Loghi partner)</li>
+        <li>Locandina per la pagina Paesaggi Condivisi</li>
+      </ul>
+
+      <h3 class="ms-h3"><i class="fas fa-database"></i> Database Browser</h3>
+      <p class="ms-p">Consente di esplorare visualmente le tabelle del database, visualizzare i record e le relazioni tra entità. Utile per verifiche rapide e debug dei dati.</p>
+
+      <h3 class="ms-h3"><i class="fas fa-shield-alt"></i> Audit Log</h3>
+      <p class="ms-p">Il sistema registra automaticamente le azioni significative degli utenti (creazione, modifica, eliminazione di record). Da <em>Admin → Audit Logs</em> puoi consultare lo storico completo con filtri per utente, azione e data.</p>
+    </div>
+    {% endif %}
+
+  </main>
+</div>
+
+<script>
+function showSection(id, linkEl) {
+  // hide all sections
+  document.querySelectorAll('.manual-section').forEach(s => s.classList.remove('active'));
+  // deactivate all links
+  document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+  // show target
+  const target = document.getElementById('sec-' + id);
+  if (target) target.classList.add('active');
+  if (linkEl) linkEl.classList.add('active');
+  // scroll content area to top
+  document.querySelector('.manual-content').scrollTop = 0;
+  window.scrollTo(0, 0);
+  return false;
+}
+</script>
+{% endblock %}

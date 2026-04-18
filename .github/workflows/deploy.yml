@@ -1,0 +1,80 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+
+# Only one deploy runs at a time — a new push cancels a queued (not running) deploy
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  # Deploy only runs if the CI job in the same commit passed
+  ci-gate:
+    name: Wait for CI
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    name: Deploy to Aruba VPS
+    runs-on: ubuntu-latest
+    needs: ci-gate
+    environment: production   # optional: enables manual approval gate in GitHub UI
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── Deploy via SSH ────────────────────────────────────────────────────
+      # All commands run as a single SSH session on the VPS.
+      # Secrets are set in: GitHub → Settings → Secrets and variables → Actions
+      - name: Deploy
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script_stop: true   # abort on first failing command
+          script: |
+            set -euo pipefail
+            echo "=== [1/6] Pull latest code ==="
+            cd ${{ secrets.VPS_PROJECT_PATH }}
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "=== [2/6] Install / update Python dependencies ==="
+            source ${{ secrets.VPS_VENV_PATH }}/bin/activate
+            pip install --quiet --no-cache-dir -r shareland/requirements.txt
+
+            echo "=== [3/6] Apply database migrations ==="
+            cd shareland
+            python manage.py migrate --noinput
+
+            echo "=== [4/6] Collect static files ==="
+            python manage.py collectstatic --noinput --clear
+
+            echo "=== [5/6] Reload gunicorn (graceful, zero-downtime) ==="
+            # 'reload' sends SIGHUP — workers finish in-flight requests before restarting
+            sudo systemctl reload ${{ secrets.VPS_GUNICORN_SERVICE }}
+
+            echo "=== [6/6] Health check ==="
+            sleep 3
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              --max-time 10 \
+              http://localhost:${{ secrets.VPS_APP_PORT || 8000 }}/health/ \
+              || echo "000")
+            if [ "$STATUS" != "200" ]; then
+              echo "Health check FAILED (HTTP $STATUS) — rolling back"
+              sudo systemctl restart ${{ secrets.VPS_GUNICORN_SERVICE }}
+              exit 1
+            fi
+            echo "Health check OK (HTTP $STATUS)"
+            echo "=== Deploy completed successfully ==="
+
+      # ── Notify on failure ─────────────────────────────────────────────────
+      - name: Notify failure
+        if: failure()
+        run: |
+          echo "::error::Deploy failed. Check the VPS logs:"
+          echo "::error::  journalctl -u ${{ secrets.VPS_GUNICORN_SERVICE }} -n 50"

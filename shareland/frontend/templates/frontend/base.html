@@ -51,6 +51,26 @@
     </script>
     {% block structured_data %}{% endblock %}
 
+    {% if site_settings %}
+    <!-- Dynamic site appearance -->
+    <style>
+      :root {
+        --shareland-primary:   {{ site_settings.navbar_primary }};
+        --shareland-secondary: {{ site_settings.navbar_secondary }};
+        --shareland-accent:    {{ site_settings.navbar_accent }};
+        --shareland-text-light:{{ site_settings.navbar_text }};
+        --shareland-text-hover:#ffffff;
+        --shareland-border:    {{ site_settings.navbar_primary }};
+      }
+      body { background-color: {{ site_settings.page_bg }}; }
+      .btn-primary, .btn-submit { background-color: {{ site_settings.card_accent }} !important; border-color: {{ site_settings.card_accent }} !important; }
+      a { color: {{ site_settings.card_accent }}; }
+    </style>
+    {% if site_settings.favicon %}
+    <link rel="icon" type="image/png" href="{{ site_settings.favicon.url }}">
+    {% endif %}
+    {% endif %}
+
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -90,8 +110,16 @@
       <div class="container-fluid">
         <!-- Logo & Brand -->
         <a class="navbar-brand shareland-brand" href="{% url 'home' %}">
-          <img src="{% static 'frontend/logo.svg' %}" alt="SHAReLAND Logo" class="navbar-logo">
-          <span class="brand-text">SHAReLand</span>
+          {% if site_settings and site_settings.logo %}
+            <img src="{{ site_settings.logo.url }}" alt="{{ site_settings.site_name }} Logo"
+                 class="navbar-logo"
+                 style="filter:none !important; width:auto; height:36px; max-width:48px; object-fit:contain;">
+          {% else %}
+            <img src="{% static 'frontend/logo.svg' %}" alt="SHAReLAND Logo"
+                 class="navbar-logo"
+                 style="filter:none !important; width:auto; height:36px; max-width:48px; object-fit:contain;">
+          {% endif %}
+          <span class="brand-text">{% if site_settings %}{{ site_settings.site_name }}{% else %}SHAReLand{% endif %}</span>
         </a>
 
         <!-- Mobile Toggle -->
@@ -107,6 +135,11 @@
             <li class="nav-item">
               <a class="nav-link active" href="{% url 'home' %}">
                 <i class="fas fa-home"></i> Home
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'home' %}#about">
+                <i class="fas fa-map-marked-alt"></i> The Project
               </a>
             </li>
             <li class="nav-item">
@@ -132,22 +165,39 @@
                   <li><a class="dropdown-item" href="{% url 'create-research' %}">
                     <i class="fas fa-plus-circle"></i> New Research
                   </a></li>
+                  {% if not user.is_staff %}
+                  <li><hr class="dropdown-divider"></li>
+                  <li><a class="dropdown-item" href="{% url 'platform_manual' %}">
+                    <i class="fas fa-book"></i> Manuale
+                  </a></li>
+                  {% endif %}
                 </ul>
               </li>
 
               <!-- Admin Dropdown (if staff) -->
               {% if user.is_staff %}
               <li class="nav-item dropdown">
-                <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" 
+                <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button"
                    data-bs-toggle="dropdown" aria-expanded="false">
                   <i class="fas fa-cog"></i> Admin
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="adminDropdown">
+                  <li><a class="dropdown-item" href="{% url 'admin_site_settings' %}">
+                    <i class="fas fa-paint-brush"></i> Site Settings
+                  </a></li>
+                  <li><a class="dropdown-item" href="{% url 'admin_user_list' %}">
+                    <i class="fas fa-users-cog"></i> User Management
+                  </a></li>
+                  <li><hr class="dropdown-divider"></li>
                   <li><a class="dropdown-item" href="{% url 'database_browser' %}">
                     <i class="fas fa-database"></i> Database Browser
                   </a></li>
                   <li><a class="dropdown-item" href="{% url 'audit_log_list' %}">
                     <i class="fas fa-shield-alt"></i> Audit Logs
+                  </a></li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li><a class="dropdown-item" href="{% url 'platform_manual' %}">
+                    <i class="fas fa-book"></i> Manuale
                   </a></li>
                 </ul>
               </li>
@@ -208,6 +258,80 @@
       {% block content %}
       {% endblock %}
     </div>
+
+    <!-- ── Footer ──────────────────────────────────────────── -->
+    <footer style="
+      background: #1a2332;
+      border-top: 3px solid #3498db;
+      padding: 2rem 1.5rem;
+      margin-top: auto;
+    ">
+      <div style="
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+      ">
+
+        <!-- Left: logos + tagline -->
+        <div style="display:flex; align-items:center; gap:1.2rem; flex-wrap:wrap;">
+          <!-- Roma Tre logo -->
+          {% if site_settings and site_settings.logo_partner_1 %}
+            <img src="{{ site_settings.logo_partner_1.url }}"
+                 alt="{{ site_settings.logo_partner_1_name }}"
+                 style="height:40px; width:auto; max-width:120px; object-fit:contain; opacity:.9;">
+          {% endif %}
+
+          <!-- Divider -->
+          {% if site_settings and site_settings.logo_partner_1 %}
+          <span style="width:1px; height:36px; background:rgba(255,255,255,.15); display:inline-block;"></span>
+          {% endif %}
+
+          <!-- SHAReLAND logo + name -->
+          <div style="display:flex; align-items:center; gap:.6rem;">
+            {% if site_settings and site_settings.logo %}
+              <img src="{{ site_settings.logo.url }}"
+                   alt="SHAReLAND"
+                   style="height:36px; width:auto; max-width:44px; object-fit:contain;">
+            {% else %}
+              <img src="{% static 'frontend/logo.svg' %}" alt="SHAReLAND"
+                   style="height:36px; width:auto; max-width:44px; object-fit:contain;">
+            {% endif %}
+            <div>
+              <div style="font-weight:700; color:#fff; font-size:.95rem; line-height:1.1;">
+                {% if site_settings %}{{ site_settings.site_name }}{% else %}SHAReLAND{% endif %}
+              </div>
+              <div style="font-size:.7rem; color:rgba(255,255,255,.45); letter-spacing:.06em; text-transform:uppercase;">
+                {% if site_settings and site_settings.tagline %}{{ site_settings.tagline }}{% else %}Archaeological Research Database{% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: nav shortcuts + copyright -->
+        <div style="text-align:right;">
+          <nav style="display:flex; gap:1.2rem; flex-wrap:wrap; justify-content:flex-end; margin-bottom:.6rem;">
+            <a href="{% url 'home' %}"            style="color:rgba(255,255,255,.6); font-size:.82rem; text-decoration:none; transition:color .15s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.6)'">Home</a>
+            <a href="{% url 'research-catalog' %}" style="color:rgba(255,255,255,.6); font-size:.82rem; text-decoration:none; transition:color .15s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.6)'">Research Catalog</a>
+            <a href="{% url 'paesaggi_condivisi' %}" style="color:rgba(255,255,255,.6); font-size:.82rem; text-decoration:none; transition:color .15s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.6)'">Paesaggi Condivisi</a>
+            {% if user.is_authenticated %}
+            <a href="{% url 'public-research-list' %}" style="color:rgba(255,255,255,.6); font-size:.82rem; text-decoration:none; transition:color .15s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.6)'">Research</a>
+            {% endif %}
+          </nav>
+          <div style="font-size:.75rem; color:rgba(255,255,255,.3);">
+            {% if site_settings and site_settings.footer_text %}
+              {{ site_settings.footer_text }}
+            {% else %}
+              &copy; {% now "Y" %} SHAReLAND &mdash; Università degli Studi Roma Tre
+            {% endif %}
+          </div>
+        </div>
+
+      </div>
+    </footer>
 
     <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>

@@ -1,0 +1,536 @@
+{% extends "frontend/base.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+  .ss-page { max-width: 1000px; margin: 0 auto; padding: 1.5rem 1rem; }
+  .ss-back { display: inline-flex; align-items: center; gap: .4rem; color: #6366f1; font-size: .88rem; font-weight: 600; text-decoration: none; margin-bottom: 1rem; }
+  .ss-back:hover { color: #4338ca; }
+
+  .ss-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 1.5rem; }
+  .ss-card-head { padding: 1rem 1.5rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; gap: .6rem; }
+  .ss-card-head h2 { font-size: 1rem; font-weight: 700; color: #1e293b; margin: 0; }
+  .ss-card-head i { color: #6366f1; }
+  .ss-card-body { padding: 1.5rem; }
+
+  .ss-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
+  .ss-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 640px) { .ss-grid, .ss-grid.cols-3 { grid-template-columns: 1fr; } }
+
+  .ss-field { display: flex; flex-direction: column; gap: .3rem; }
+  .ss-field label { font-size: .8rem; font-weight: 600; color: #374151; }
+  .ss-field input[type=text], .ss-field textarea {
+    border: 1px solid #cbd5e1; border-radius: 6px; padding: .5rem .75rem;
+    font-size: .9rem; color: #1e293b; background: #f8fafc;
+  }
+  .ss-field input:focus, .ss-field textarea:focus { outline: 2px solid #6366f1; border-color: #6366f1; }
+  .ss-field .hint { font-size: .73rem; color: #94a3b8; }
+  .ss-field textarea { resize: vertical; min-height: 70px; }
+
+  /* Colour picker row */
+  .colour-row { display: flex; align-items: center; gap: .6rem; }
+  .colour-row input[type=color] {
+    width: 42px; height: 36px; border: 1px solid #cbd5e1; border-radius: 6px;
+    padding: 2px; cursor: pointer; background: none;
+  }
+  .colour-row input[type=text] { flex: 1; font-family: monospace; }
+  .colour-swatch { width: 18px; height: 18px; border-radius: 4px; border: 1px solid #e2e8f0; flex-shrink: 0; }
+
+  /* Logo/favicon upload */
+  .upload-row { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .upload-preview { width: 64px; height: 64px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; }
+  .upload-preview.favicon { width: 40px; height: 40px; }
+  .upload-clear { display: flex; align-items: center; gap: .4rem; font-size: .82rem; color: #dc2626; cursor: pointer; }
+  .upload-clear input { accent-color: #dc2626; }
+
+  /* Live preview */
+  .preview-navbar {
+    border-radius: 8px; padding: .75rem 1.2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 1rem; transition: background .2s;
+  }
+  .preview-brand { font-weight: 700; font-size: 1.1rem; display: flex; align-items: center; gap: .5rem; }
+  .preview-links { display: flex; gap: 1rem; font-size: .88rem; }
+  .preview-accent-bar { height: 3px; border-radius: 0 0 4px 4px; margin-top: 0; }
+
+  /* Reset button */
+  .btn-reset { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; border-radius: 6px; padding: .4rem .9rem; font-size: .82rem; cursor: pointer; }
+  .btn-reset:hover { background: #e2e8f0; }
+
+  /* Footer */
+  .ss-footer { display: flex; gap: .75rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid #e2e8f0; margin-top: .5rem; }
+</style>
+
+<div class="ss-page">
+  <a href="{% url 'admin_user_list' %}" class="ss-back"><i class="fas fa-arrow-left"></i> Back to Admin</a>
+
+  <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; margin-bottom:1.5rem;">
+    <h1 style="font-size:1.5rem; font-weight:700; color:#1e293b; margin:0;">
+      <i class="fas fa-paint-brush" style="color:#6366f1; margin-right:.4rem;"></i> Site Settings
+    </h1>
+  </div>
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <!-- Identity -->
+    <div class="ss-card">
+      <div class="ss-card-head"><i class="fas fa-id-badge"></i><h2>Identity</h2></div>
+      <div class="ss-card-body">
+        <div class="ss-grid">
+          <div class="ss-field">
+            <label>Site Name</label>
+            <input type="text" name="site_name" value="{{ settings.site_name }}">
+          </div>
+          <div class="ss-field">
+            <label>Tagline</label>
+            <input type="text" name="tagline" value="{{ settings.tagline }}">
+            <span class="hint">Shown in navbar subtitle and page descriptions</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Logo & Favicon -->
+    <div class="ss-card">
+      <div class="ss-card-head"><i class="fas fa-image"></i><h2>Logo &amp; Favicon</h2></div>
+      <div class="ss-card-body">
+        <div class="ss-grid">
+          <div class="ss-field">
+            <label>Logo</label>
+            <div class="upload-row">
+              {% if settings.logo %}
+                <img src="{{ settings.logo.url }}" class="upload-preview" id="logoPreview" alt="Logo">
+              {% else %}
+                <img src="{% static 'frontend/logo.svg' %}" class="upload-preview" id="logoPreview" alt="Logo">
+              {% endif %}
+              <div>
+                <input type="file" name="logo" accept="image/*" onchange="previewImg(this,'logoPreview')">
+                {% if settings.logo %}
+                <label class="upload-clear mt-1">
+                  <input type="checkbox" name="logo_clear"> Remove logo
+                </label>
+                {% endif %}
+              </div>
+            </div>
+            <span class="hint">SVG, PNG or WEBP recommended. Displayed at 36px height in navbar.</span>
+          </div>
+          <div class="ss-field">
+            <label>Favicon</label>
+            <div class="upload-row">
+              {% if settings.favicon %}
+                <img src="{{ settings.favicon.url }}" class="upload-preview favicon" id="faviconPreview" alt="Favicon">
+              {% else %}
+                <div class="upload-preview favicon" id="faviconPreview" style="display:flex;align-items:center;justify-content:center;color:#94a3b8;">
+                  <i class="fas fa-globe"></i>
+                </div>
+              {% endif %}
+              <div>
+                <input type="file" name="favicon" accept="image/*" onchange="previewImg(this,'faviconPreview')">
+                {% if settings.favicon %}
+                <label class="upload-clear mt-1">
+                  <input type="checkbox" name="favicon_clear"> Remove favicon
+                </label>
+                {% endif %}
+              </div>
+            </div>
+            <span class="hint">32×32 or 64×64 PNG/ICO recommended.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navbar Colours -->
+    <div class="ss-card">
+      <div class="ss-card-head"><i class="fas fa-palette"></i><h2>Navbar Colours</h2></div>
+      <div class="ss-card-body">
+        <div class="ss-grid cols-3" id="navColourGrid">
+          <div class="ss-field">
+            <label>Gradient Left</label>
+            <div class="colour-row">
+              <input type="color" id="picker_navbar_primary" value="{{ settings.navbar_primary }}" oninput="syncColour('navbar_primary', this.value)">
+              <input type="text" name="navbar_primary" id="text_navbar_primary" value="{{ settings.navbar_primary }}" maxlength="7" oninput="syncPicker('navbar_primary', this.value)">
+            </div>
+            <span class="hint">Navbar gradient – left colour</span>
+          </div>
+          <div class="ss-field">
+            <label>Gradient Right</label>
+            <div class="colour-row">
+              <input type="color" id="picker_navbar_secondary" value="{{ settings.navbar_secondary }}" oninput="syncColour('navbar_secondary', this.value)">
+              <input type="text" name="navbar_secondary" id="text_navbar_secondary" value="{{ settings.navbar_secondary }}" maxlength="7" oninput="syncPicker('navbar_secondary', this.value)">
+            </div>
+            <span class="hint">Navbar gradient – right colour</span>
+          </div>
+          <div class="ss-field">
+            <label>Accent / Border</label>
+            <div class="colour-row">
+              <input type="color" id="picker_navbar_accent" value="{{ settings.navbar_accent }}" oninput="syncColour('navbar_accent', this.value)">
+              <input type="text" name="navbar_accent" id="text_navbar_accent" value="{{ settings.navbar_accent }}" maxlength="7" oninput="syncPicker('navbar_accent', this.value)">
+            </div>
+            <span class="hint">Bottom border & active link colour</span>
+          </div>
+          <div class="ss-field">
+            <label>Text / Links</label>
+            <div class="colour-row">
+              <input type="color" id="picker_navbar_text" value="{{ settings.navbar_text }}" oninput="syncColour('navbar_text', this.value)">
+              <input type="text" name="navbar_text" id="text_navbar_text" value="{{ settings.navbar_text }}" maxlength="7" oninput="syncPicker('navbar_text', this.value)">
+            </div>
+            <span class="hint">Navbar link and brand text colour</span>
+          </div>
+        </div>
+
+        <!-- Live preview -->
+        <div class="mt-3">
+          <p style="font-size:.78rem; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:.05em; margin-bottom:.5rem;">Live Preview</p>
+          <div id="navPreview" class="preview-navbar">
+            <div class="preview-brand" id="prevBrand">
+              <img src="{% if settings.logo %}{{ settings.logo.url }}{% else %}{% static 'frontend/logo.svg' %}{% endif %}"
+                   style="height:28px;" id="prevLogo" alt="">
+              <span id="prevName">{{ settings.site_name }}</span>
+            </div>
+            <div class="preview-links" id="prevLinks">
+              <span>Home</span><span>Catalog</span><span>Research</span>
+            </div>
+          </div>
+          <div id="prevAccentBar" class="preview-accent-bar"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Page Colours -->
+    <div class="ss-card">
+      <div class="ss-card-head"><i class="fas fa-fill-drip"></i><h2>Page Colours</h2></div>
+      <div class="ss-card-body">
+        <div class="ss-grid">
+          <div class="ss-field">
+            <label>Page Background</label>
+            <div class="colour-row">
+              <input type="color" id="picker_page_bg" value="{{ settings.page_bg }}"
+                     oninput="syncColour('page_bg', this.value)">
+              <input type="text" name="page_bg" id="text_page_bg"
+                     value="{{ settings.page_bg }}" maxlength="7"
+                     oninput="syncPicker('page_bg', this.value)">
+            </div>
+            <span class="hint">Background of the main content area</span>
+          </div>
+          <div class="ss-field">
+            <label>Accent / Buttons</label>
+            <div class="colour-row">
+              <input type="color" id="picker_card_accent" value="{{ settings.card_accent }}"
+                     oninput="syncColour('card_accent', this.value)">
+              <input type="text" name="card_accent" id="text_card_accent"
+                     value="{{ settings.card_accent }}" maxlength="7"
+                     oninput="syncPicker('card_accent', this.value)">
+            </div>
+            <span class="hint">Buttons, active links, card highlights</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="ss-card">
+      <div class="ss-card-head"><i class="fas fa-align-left"></i><h2>Footer</h2></div>
+      <div class="ss-card-body">
+        <div class="ss-field">
+          <label>Footer Text</label>
+          <textarea name="footer_text">{{ settings.footer_text }}</textarea>
+          <span class="hint">Displayed at the bottom of every page</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ HOME PAGE CONTENT ══════════════════════════════════════ -->
+    <div style="padding: 1.5rem 0 .5rem; border-top: 2px solid #e2e8f0; margin-top: .5rem;">
+      <h2 style="font-size: 1.1rem; font-weight: 700; color: #1e293b; margin: 0 0 .25rem;">
+        <i class="fas fa-home" style="color:#6366f1; margin-right:.4rem;"></i> Home Page Content
+      </h2>
+      <p style="font-size:.82rem; color:#64748b; margin:0;">Configure the project information sections shown on the home page.</p>
+    </div>
+
+    <!-- About -->
+    <div class="ss-card">
+      <div class="ss-card-head">
+        <i class="fas fa-landmark"></i>
+        <h2>About the Project</h2>
+        <label style="margin-left:auto; display:flex; align-items:center; gap:.4rem; font-size:.82rem; font-weight:500; color:#475569; cursor:pointer;">
+          <input type="checkbox" name="show_about" {% if settings.show_about %}checked{% endif %} style="accent-color:#6366f1;"> Show section
+        </label>
+      </div>
+      <div class="ss-card-body">
+        <div class="ss-field" style="margin-bottom:1rem;">
+          <label>English text</label>
+          <textarea name="about_en" style="min-height:160px;">{{ settings.about_en }}</textarea>
+          <span class="hint">Plain text or basic HTML (&lt;p&gt;, &lt;strong&gt;, &lt;em&gt;). Leave blank to use the built-in default.</span>
+        </div>
+        <div class="ss-field">
+          <label>Italian text (Italiano)</label>
+          <textarea name="about_it" style="min-height:160px;">{{ settings.about_it }}</textarea>
+          <span class="hint">Leave blank to use the built-in default.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Key Information -->
+    <div class="ss-card">
+      <div class="ss-card-head">
+        <i class="fas fa-info-circle"></i>
+        <h2>Key Information</h2>
+        <label style="margin-left:auto; display:flex; align-items:center; gap:.4rem; font-size:.82rem; font-weight:500; color:#475569; cursor:pointer;">
+          <input type="checkbox" name="show_keyinfo" {% if settings.show_keyinfo %}checked{% endif %} style="accent-color:#6366f1;"> Show section
+        </label>
+      </div>
+      <div class="ss-card-body">
+        <div class="ss-grid">
+          <div class="ss-field">
+            <label>Project Date</label>
+            <input type="text" name="project_date" value="{{ settings.project_date }}">
+            <span class="hint">e.g. 2024 – ongoing</span>
+          </div>
+          <div class="ss-field">
+            <label>Main Institution</label>
+            <input type="text" name="institution_name" value="{{ settings.institution_name }}">
+          </div>
+          <div class="ss-field">
+            <label>Department</label>
+            <input type="text" name="institution_dept" value="{{ settings.institution_dept }}">
+          </div>
+          <div class="ss-field">
+            <label>Research Lab</label>
+            <input type="text" name="lab_name" value="{{ settings.lab_name }}">
+          </div>
+          <div class="ss-field">
+            <label>Instagram Handle</label>
+            <input type="text" name="lab_instagram" value="{{ settings.lab_instagram }}">
+            <span class="hint">Without @</span>
+          </div>
+        </div>
+        <div style="margin-top:1rem; padding-top:1rem; border-top:1px solid #f1f5f9;">
+          <p style="font-size:.78rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.06em; margin-bottom:.75rem;">PhD Project</p>
+          <div class="ss-grid cols-3">
+            <div class="ss-field" style="grid-column:1/-1;">
+              <label>PhD Title</label>
+              <input type="text" name="phd_title" value="{{ settings.phd_title }}">
+            </div>
+            <div class="ss-field">
+              <label>PhD Researcher</label>
+              <input type="text" name="phd_researcher" value="{{ settings.phd_researcher }}">
+            </div>
+            <div class="ss-field">
+              <label>Years</label>
+              <input type="text" name="phd_years" value="{{ settings.phd_years }}">
+              <span class="hint">e.g. 2024–2027</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Team -->
+    <div class="ss-card">
+      <div class="ss-card-head">
+        <i class="fas fa-users"></i>
+        <h2>Project Team</h2>
+        <label style="margin-left:auto; display:flex; align-items:center; gap:.4rem; font-size:.82rem; font-weight:500; color:#475569; cursor:pointer;">
+          <input type="checkbox" name="show_team" {% if settings.show_team %}checked{% endif %} style="accent-color:#6366f1;"> Show section
+        </label>
+      </div>
+      <div class="ss-card-body">
+        <p style="font-size:.8rem; color:#64748b; margin-bottom:1rem; background:#f8fafc; border-radius:6px; padding:.6rem .9rem; border:1px solid #e2e8f0;">
+          <i class="fas fa-info-circle" style="color:#6366f1;"></i>
+          One member per line in the format: <code>Full Name | Role description</code>
+        </p>
+        <div class="ss-grid">
+          <div class="ss-field">
+            <label>Project Coordinators / Responsabili</label>
+            <textarea name="team_coordinators" style="min-height:100px; font-family:monospace; font-size:.85rem;">{{ settings.team_coordinators }}</textarea>
+          </div>
+          <div class="ss-field">
+            <label>Technical Development / Sviluppo informatico</label>
+            <textarea name="team_technical" style="min-height:100px; font-family:monospace; font-size:.85rem;">{{ settings.team_technical }}</textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Partner Logos -->
+    <div class="ss-card">
+      <div class="ss-card-head">
+        <i class="fas fa-building"></i>
+        <h2>Partner Logos</h2>
+        <label style="margin-left:auto; display:flex; align-items:center; gap:.4rem; font-size:.82rem; font-weight:500; color:#475569; cursor:pointer;">
+          <input type="checkbox" name="show_logos" {% if settings.show_logos %}checked{% endif %} style="accent-color:#6366f1;"> Show section
+        </label>
+      </div>
+      <div class="ss-card-body">
+        <div class="ss-grid cols-3">
+          <!-- Logo 1 -->
+          <div class="ss-field">
+            <label>Logo 1</label>
+            <div class="upload-row" style="margin-bottom:.5rem;">
+              {% if settings.logo_partner_1 %}
+                <img src="{{ settings.logo_partner_1.url }}" class="upload-preview" id="logoP1Preview" alt="Logo 1" style="height:50px;width:auto;max-width:120px;">
+              {% else %}
+                <div class="upload-preview" id="logoP1Preview" style="width:80px;height:50px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:.75rem;text-align:center;">No logo</div>
+              {% endif %}
+              <div>
+                <input type="file" name="logo_partner_1" accept="image/*" onchange="previewImg(this,'logoP1Preview')">
+                {% if settings.logo_partner_1 %}
+                <label class="upload-clear mt-1"><input type="checkbox" name="logo_partner_1_clear"> Remove</label>
+                {% endif %}
+              </div>
+            </div>
+            <input type="text" name="logo_partner_1_name" value="{{ settings.logo_partner_1_name }}" placeholder="Institution name">
+          </div>
+          <!-- Logo 2 -->
+          <div class="ss-field">
+            <label>Logo 2</label>
+            <div class="upload-row" style="margin-bottom:.5rem;">
+              {% if settings.logo_partner_2 %}
+                <img src="{{ settings.logo_partner_2.url }}" class="upload-preview" id="logoP2Preview" alt="Logo 2" style="height:50px;width:auto;max-width:120px;">
+              {% else %}
+                <div class="upload-preview" id="logoP2Preview" style="width:80px;height:50px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:.75rem;text-align:center;">No logo</div>
+              {% endif %}
+              <div>
+                <input type="file" name="logo_partner_2" accept="image/*" onchange="previewImg(this,'logoP2Preview')">
+                {% if settings.logo_partner_2 %}
+                <label class="upload-clear mt-1"><input type="checkbox" name="logo_partner_2_clear"> Remove</label>
+                {% endif %}
+              </div>
+            </div>
+            <input type="text" name="logo_partner_2_name" value="{{ settings.logo_partner_2_name }}" placeholder="Institution name">
+          </div>
+          <!-- Logo 3 -->
+          <div class="ss-field">
+            <label>Logo 3 (optional)</label>
+            <div class="upload-row" style="margin-bottom:.5rem;">
+              {% if settings.logo_partner_3 %}
+                <img src="{{ settings.logo_partner_3.url }}" class="upload-preview" id="logoP3Preview" alt="Logo 3" style="height:50px;width:auto;max-width:120px;">
+              {% else %}
+                <div class="upload-preview" id="logoP3Preview" style="width:80px;height:50px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:.75rem;text-align:center;">No logo</div>
+              {% endif %}
+              <div>
+                <input type="file" name="logo_partner_3" accept="image/*" onchange="previewImg(this,'logoP3Preview')">
+                {% if settings.logo_partner_3 %}
+                <label class="upload-clear mt-1"><input type="checkbox" name="logo_partner_3_clear"> Remove</label>
+                {% endif %}
+              </div>
+            </div>
+            <input type="text" name="logo_partner_3_name" value="{{ settings.logo_partner_3_name }}" placeholder="Institution name (optional)">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Paesaggi Condivisi -->
+    <div class="ss-card">
+      <div class="ss-card-head"><i class="fas fa-map-marked-alt"></i><h2>Paesaggi Condivisi – Locandina Monti Lucretili</h2></div>
+      <div class="ss-card-body">
+        <div class="ss-field">
+          <label>Locandina evento – <em>Sulle orme di un viaggiatore dell'800</em></label>
+          <div class="upload-row">
+            {% if settings.poster_lucretili %}
+              <img src="{{ settings.poster_lucretili.url }}" class="upload-preview" id="posterLucretiliPreview" alt="Locandina" style="height:80px;width:auto;max-width:140px;">
+            {% else %}
+              <div class="upload-preview" id="posterLucretiliPreview" style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;color:#94a3b8;">
+                <i class="fas fa-image" style="font-size:1.5rem;"></i>
+              </div>
+            {% endif %}
+            <div>
+              <input type="file" name="poster_lucretili" accept="image/*" onchange="previewImg(this,'posterLucretiliPreview')">
+              {% if settings.poster_lucretili %}
+              <label class="upload-clear mt-1"><input type="checkbox" name="poster_lucretili_clear"> Remove poster</label>
+              {% endif %}
+            </div>
+          </div>
+          <span class="hint">PNG, JPG o PDF convertito in immagine. Verrà mostrata nella pagina Paesaggi Condivisi.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="ss-footer">
+      <button type="button" class="btn-reset" onclick="resetDefaults()">
+        <i class="fas fa-undo"></i> Reset to Defaults
+      </button>
+      <button type="submit" class="btn btn-primary">
+        <i class="fas fa-save"></i> Save Settings
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+const DEFAULTS = {
+  navbar_primary:   '#2c3e50',
+  navbar_secondary: '#34495e',
+  navbar_accent:    '#3498db',
+  navbar_text:      '#ecf0f1',
+  page_bg:          '#f5f6fa',
+  card_accent:      '#3498db',
+};
+
+function syncColour(name, val) {
+  const txt = document.getElementById('text_' + name);
+  if (txt) txt.value = val;
+  updatePreview();
+}
+function syncPicker(name, val) {
+  if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+    const pk = document.getElementById('picker_' + name);
+    if (pk) pk.value = val;
+    updatePreview();
+  }
+}
+function getVal(name) {
+  const el = document.getElementById('text_' + name);
+  return el ? el.value : DEFAULTS[name];
+}
+function updatePreview() {
+  const p  = getVal('navbar_primary');
+  const s  = getVal('navbar_secondary');
+  const a  = getVal('navbar_accent');
+  const t  = getVal('navbar_text');
+  const nav = document.getElementById('navPreview');
+  if (nav) {
+    nav.style.background = `linear-gradient(135deg, ${p} 0%, ${s} 100%)`;
+    nav.style.color = t;
+  }
+  const bar = document.getElementById('prevAccentBar');
+  if (bar) bar.style.background = a;
+  const links = document.getElementById('prevLinks');
+  if (links) links.style.color = t;
+  const brand = document.getElementById('prevBrand');
+  if (brand) brand.style.color = t;
+}
+function resetDefaults() {
+  Object.entries(DEFAULTS).forEach(([name, val]) => {
+    const pk = document.getElementById('picker_' + name);
+    const tx = document.getElementById('text_' + name);
+    if (pk) pk.value = val;
+    if (tx) tx.value = val;
+  });
+  updatePreview();
+}
+function previewImg(input, previewId) {
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const el = document.getElementById(previewId);
+      if (el && el.tagName === 'IMG') el.src = e.target.result;
+      if (previewId === 'logoPreview') {
+        const pl = document.getElementById('prevLogo');
+        if (pl) pl.src = e.target.result;
+      }
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+// Update site_name in live preview as user types
+document.querySelector('[name=site_name]')?.addEventListener('input', function() {
+  const el = document.getElementById('prevName');
+  if (el) el.textContent = this.value || 'SHAReLAND';
+});
+// Init preview
+updatePreview();
+</script>
+{% endblock %}

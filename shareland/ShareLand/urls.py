@@ -19,10 +19,41 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.sitemaps.views import sitemap
+from django.http import JsonResponse
+from django.shortcuts import render
 from users import views as user_views
 from frontend.seo_views import (
     StaticViewSitemap, ResearchSitemap, SiteSitemap, robots_txt
 )
+
+
+# ── Custom error handlers ─────────────────────────────────────────────────────
+# Django picks these up automatically when DEBUG=False.
+# Templates live in frontend/templates/errors/.
+
+def handler400(request, exception=None):
+    return render(request, 'errors/400.html', status=400)
+
+def handler403(request, exception=None):
+    return render(request, 'errors/403.html', status=403)
+
+def handler404(request, exception=None):
+    return render(request, 'errors/404.html', status=404)
+
+def handler500(request):
+    return render(request, 'errors/500.html', status=500)
+
+
+def health_check(request):
+    """Lightweight liveness probe used by the CI/CD deploy health check."""
+    from django.db import connection
+    try:
+        connection.ensure_connection()
+        db_ok = True
+    except Exception:
+        db_ok = False
+    status = 200 if db_ok else 503
+    return JsonResponse({"status": "ok" if db_ok else "db_error", "db": db_ok}, status=status)
 
 # Sitemap configuration
 sitemaps = {
@@ -32,6 +63,7 @@ sitemaps = {
 }
 
 urlpatterns = [
+    path('health/', health_check, name='health_check'),
     path('admin/', admin.site.urls),
     path('login/', auth_views.LoginView.as_view(template_name='users/login.html'), name='login'),
     path('register/', user_views.register, name='register'),

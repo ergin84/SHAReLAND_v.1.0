@@ -648,9 +648,9 @@ function initLeafletMap(divId) {
     const map = L.map(divId);
     el._leaflet_map = map;
     const marker = L.marker([lat, lon]).addTo(map);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors'
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
     }).addTo(map);
     map.setView([lat, lon], 13);
     setTimeout(() => map.invalidateSize(true), 50);

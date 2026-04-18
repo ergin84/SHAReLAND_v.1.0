@@ -649,11 +649,17 @@
 
         mapModal.addEventListener('shown.bs.modal', () => {
             if (!mapInitialized) {
-                const map = L.map('map').setView([43.7696, 11.2558], 13);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '&copy; OpenStreetMap contributors'
+                const map = L.map('map').setView([43.7696, 11.2558], 6);
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
                 }).addTo(map);
                 map.invalidateSize();
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        pos => map.setView([pos.coords.latitude, pos.coords.longitude], 13),
+                        () => {}
+                    );
+                }
 
                 const drawnItems = new L.FeatureGroup();
                 map.addLayer(drawnItems);
@@ -697,11 +703,17 @@
 
         document.getElementById('uploadShapefileModal').addEventListener('shown.bs.modal', () => {
             if (!shpMap) {
-                shpMap = L.map('shapefileMap').setView([43.7696, 11.2558], 13);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                shpMap = L.map('shapefileMap').setView([43.7696, 11.2558], 6);
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
                     attribution: '&copy; OpenStreetMap'
                 }).addTo(shpMap);
                 shpMap.invalidateSize();
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        pos => shpMap.setView([pos.coords.latitude, pos.coords.longitude], 13),
+                        () => {}
+                    );
+                }
             }
         });
 

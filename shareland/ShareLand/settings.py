@@ -76,6 +76,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'frontend.seo_utils.seo_context_processor',  # SEO context
+                'frontend.context_processors.site_settings',  # Site appearance settings
             ],
         },
     },

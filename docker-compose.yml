@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:17
     container_name: shareland_postgres
     environment:
       POSTGRES_USER: postgres
@@ -10,7 +10,8 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./open_landscapes2605.dump:/docker-entrypoint-initdb.d/open_landscapes2605.dump:ro
+      - ./backups:/backups:ro
+      - ./scripts/init-db-restore.sh:/docker-entrypoint-initdb.d/02-restore.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s

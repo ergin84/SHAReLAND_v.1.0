@@ -160,7 +160,7 @@ class SiteForm(forms.ModelForm):
         ]
         labels = {
             'site_name': 'Nome del sito',
-            'site_environment_relationship': 'Raporto sito-ambiente',
+            'site_environment_relationship': 'Rapporto sito-ambiente',
             'additional_topography': 'Riferimenti topografici',
             'elevation': 'Quota',
             'locality_name': 'Locality Name',
@@ -175,7 +175,7 @@ class SiteForm(forms.ModelForm):
             'id_base_map': 'Base Cartografica',
             'id_positioning_mode': 'Modalità di Posizionamento',
             'id_positional_accuracy': 'Qualità del Posizionamento',
-            'id_first_discovery_method': 'Mdalità di rinvenimento (prima scoperta)',
+            'id_first_discovery_method': 'Modalità di rinvenimento (prima scoperta)',
             'description': 'Descrizione',
             'notes': 'Note',
         }
@@ -296,7 +296,8 @@ class ArchaeologicalEvidenceForm(forms.ModelForm):
     
     id_first_discovery_method = forms.ModelChoiceField(
         queryset=FirstDiscoveryMethod.objects.all(),
-        required=True,
+        required=False,
+        empty_label="---------",
         label="Modalità di rinvenimento (prima scoperta)"
     )
     

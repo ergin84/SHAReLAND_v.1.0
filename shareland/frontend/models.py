@@ -10,6 +10,101 @@ from django.db import models
 from django.contrib.auth.models import User
 
 
+class SiteSettings(models.Model):
+    """Singleton model for site-wide appearance settings."""
+    # Identity
+    site_name   = models.CharField(max_length=100, default='SHAReLAND')
+    tagline     = models.CharField(max_length=200, blank=True, default='Archaeological Research Database')
+    logo        = models.ImageField(upload_to='site/', blank=True, null=True,
+                                    help_text='Replaces the default SVG logo in the navbar')
+    favicon     = models.ImageField(upload_to='site/', blank=True, null=True,
+                                    help_text='Browser tab icon (recommended: 32×32 PNG)')
+    # Navbar colours (map to CSS variables)
+    navbar_primary   = models.CharField(max_length=7, default='#2c3e50',
+                                        help_text='Navbar gradient – left colour')
+    navbar_secondary = models.CharField(max_length=7, default='#34495e',
+                                        help_text='Navbar gradient – right colour')
+    navbar_accent    = models.CharField(max_length=7, default='#3498db',
+                                        help_text='Navbar bottom border & active link colour')
+    navbar_text      = models.CharField(max_length=7, default='#ecf0f1',
+                                        help_text='Navbar link / brand text colour')
+    # Page colours
+    page_bg          = models.CharField(max_length=7, default='#f5f6fa',
+                                        help_text='Main page background')
+    card_accent      = models.CharField(max_length=7, default='#3498db',
+                                        help_text='Buttons, links, highlights')
+    # Footer
+    footer_text = models.TextField(blank=True,
+                                   default='© SHAReLAND – Archaeological Research Database')
+
+    # ── Home page: About section ─────────────────────────────
+    show_about   = models.BooleanField(default=True, help_text='Show the About section on the home page')
+    about_en     = models.TextField(blank=True, default='',
+                                    help_text='English description (HTML allowed)')
+    about_it     = models.TextField(blank=True, default='',
+                                    help_text='Italian description (HTML allowed)')
+
+    # ── Home page: Key Information ───────────────────────────
+    show_keyinfo        = models.BooleanField(default=True)
+    project_date        = models.CharField(max_length=60,  blank=True, default='2024 – ongoing')
+    institution_name    = models.CharField(max_length=200, blank=True, default='Università degli Studi Roma Tre')
+    institution_dept    = models.CharField(max_length=200, blank=True, default='Dipartimento di Studi Umanistici')
+    lab_name            = models.CharField(max_length=200, blank=True, default='Archeopaesaggi Roma Tre')
+    lab_instagram       = models.CharField(max_length=100, blank=True, default='archeopaesaggi_roma3',
+                                           help_text='Instagram handle without @')
+    phd_title           = models.CharField(max_length=400, blank=True,
+                                           default='Shared Archaeological Landscapes / Paesaggi Archeologici Condivisi')
+    phd_researcher      = models.CharField(max_length=200, blank=True, default='Margherita Bottoni')
+    phd_years           = models.CharField(max_length=20,  blank=True, default='2024–2027')
+
+    # ── Home page: Team ──────────────────────────────────────
+    # One entry per line, format: "Full Name | Role description"
+    show_team           = models.BooleanField(default=True)
+    team_coordinators   = models.TextField(blank=True,
+                                           default='Emanuele Farinetti | Project Coordinator — Università Roma Tre\nMargherita Bottoni | Project Coordinator & PhD Researcher',
+                                           help_text='One member per line: "Name | Role"')
+    team_technical      = models.TextField(blank=True,
+                                           default='Emanuele Bellini | Technical Developer\nErgin Mehmeti | Technical Developer',
+                                           help_text='One member per line: "Name | Role"')
+
+    # ── Home page: Logos ─────────────────────────────────────
+    show_logos          = models.BooleanField(default=True)
+    logo_partner_1      = models.ImageField(upload_to='site/', blank=True, null=True,
+                                            help_text='First partner logo (e.g. Università Roma Tre)')
+    logo_partner_1_name = models.CharField(max_length=200, blank=True, default='Università degli Studi Roma Tre')
+    logo_partner_2      = models.ImageField(upload_to='site/', blank=True, null=True,
+                                            help_text='Second partner logo (e.g. Archeopaesaggi)')
+    logo_partner_2_name = models.CharField(max_length=200, blank=True, default='Archeopaesaggi Roma Tre')
+    logo_partner_3      = models.ImageField(upload_to='site/', blank=True, null=True,
+                                            help_text='Third partner logo (optional)')
+    logo_partner_3_name = models.CharField(max_length=200, blank=True)
+
+    # ── Paesaggi Condivisi page ──────────────────────────────
+    poster_lucretili = models.ImageField(
+        upload_to='site/', blank=True, null=True,
+        help_text='Event poster – Sulle orme di un viaggiatore dell\'800 (Monti Lucretili)'
+    )
+
+    class Meta:
+        db_table = 'site_settings'
+        verbose_name = 'Site Settings'
+
+    def save(self, *args, **kwargs):
+        self.pk = 1  # enforce singleton
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        pass  # prevent deletion
+
+    @classmethod
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return 'Site Settings'
+
+
 class Anagraphic(models.Model):
     id = models.IntegerField(primary_key=True)
     name = models.TextField(blank=True, null=True)

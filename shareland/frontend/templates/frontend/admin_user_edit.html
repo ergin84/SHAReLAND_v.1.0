@@ -1,0 +1,230 @@
+{% extends "frontend/base.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+  .ue-page { max-width: 860px; margin: 0 auto; padding: 1.5rem 1rem; }
+  .ue-back { display: inline-flex; align-items: center; gap: .4rem; color: #6366f1; font-size: .88rem; font-weight: 600; text-decoration: none; margin-bottom: 1rem; }
+  .ue-back:hover { color: #4338ca; }
+  .ue-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
+  .ue-card-header { background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%); padding: 1.5rem 2rem; color: #fff; }
+  .ue-card-header h1 { font-size: 1.35rem; font-weight: 700; margin: 0; }
+  .ue-card-header p  { margin: .3rem 0 0; opacity: .8; font-size: .88rem; }
+  .ue-card-body { padding: 2rem; }
+
+  .ue-section { margin-bottom: 2rem; }
+  .ue-section-title { font-size: .78rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: .07em; border-bottom: 2px solid #e2e8f0; padding-bottom: .4rem; margin-bottom: 1.2rem; }
+
+  .ue-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .ue-grid.full { grid-template-columns: 1fr; }
+  @media (max-width: 600px) { .ue-grid { grid-template-columns: 1fr; } }
+
+  .form-group { display: flex; flex-direction: column; gap: .3rem; }
+  .form-group label { font-size: .82rem; font-weight: 600; color: #374151; }
+  .form-group label .req { color: #dc2626; }
+  .form-group input[type=text],
+  .form-group input[type=email],
+  .form-group input[type=password] {
+    border: 1px solid #cbd5e1; border-radius: 7px; padding: .55rem .8rem;
+    font-size: .9rem; color: #1e293b; background: #f8fafc; transition: border .15s;
+  }
+  .form-group input:focus { outline: 2px solid #6366f1; border-color: #6366f1; background: #fff; }
+  .form-group .hint { font-size: .75rem; color: #94a3b8; margin-top: .15rem; }
+
+  /* Checkboxes */
+  .ue-checks { display: flex; flex-wrap: wrap; gap: 1rem; }
+  .ue-check-item { display: flex; align-items: center; gap: .5rem; cursor: pointer; }
+  .ue-check-item input[type=checkbox] { width: 16px; height: 16px; accent-color: #6366f1; cursor: pointer; }
+  .ue-check-item span { font-size: .88rem; font-weight: 500; color: #374151; }
+  .ue-check-item small { font-size: .75rem; color: #94a3b8; }
+
+  /* Roles grid */
+  .roles-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: .6rem; }
+  .role-card { border: 2px solid #e2e8f0; border-radius: 8px; padding: .65rem .9rem; cursor: pointer; transition: border .15s, background .15s; display: flex; align-items: flex-start; gap: .6rem; }
+  .role-card:hover { border-color: #a5b4fc; background: #f5f3ff; }
+  .role-card.selected { border-color: #6366f1; background: #eef2ff; }
+  .role-card input { accent-color: #6366f1; margin-top: 3px; flex-shrink: 0; }
+  .role-card .rc-label { font-size: .85rem; font-weight: 600; color: #1e293b; }
+  .role-card .rc-desc  { font-size: .75rem; color: #64748b; margin-top: .15rem; }
+
+  /* User info bar (edit mode) */
+  .ue-info-bar { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem 1.2rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .ue-avatar { width: 48px; height: 48px; border-radius: 50%; background: #6366f1; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.1rem; flex-shrink: 0; }
+  .ue-info-bar .ue-meta { flex: 1; }
+  .ue-info-bar .ue-meta strong { display: block; font-size: .95rem; color: #1e293b; }
+  .ue-info-bar .ue-meta span  { font-size: .8rem; color: #64748b; }
+
+  /* Footer */
+  .ue-footer { display: flex; gap: .75rem; justify-content: flex-end; padding-top: 1.5rem; border-top: 1px solid #e2e8f0; margin-top: 1rem; }
+</style>
+
+<div class="ue-page">
+  <a href="{% url 'admin_user_list' %}" class="ue-back">
+    <i class="fas fa-arrow-left"></i> Back to User Management
+  </a>
+
+  <div class="ue-card">
+    <div class="ue-card-header">
+      <h1>
+        {% if form_action == 'create' %}
+          <i class="fas fa-user-plus" style="margin-right:.4rem;"></i>Create New User
+        {% else %}
+          <i class="fas fa-user-edit" style="margin-right:.4rem;"></i>{{ page_title }}
+        {% endif %}
+      </h1>
+      <p>{% if form_action == 'create' %}Add a new user to the platform.{% else %}Edit account details, profile, roles and permissions.{% endif %}</p>
+    </div>
+
+    <div class="ue-card-body">
+      {% if form_action == 'edit' and target_user %}
+      <div class="ue-info-bar">
+        <div class="ue-avatar">{{ target_user.username|first|upper }}</div>
+        <div class="ue-meta">
+          <strong>{{ target_user.username }}
+            {% if target_user.is_superuser %}<span class="badge bg-warning text-dark ms-1" style="font-size:.7rem;">Superuser</span>{% endif %}
+            {% if target_user.is_staff and not target_user.is_superuser %}<span class="badge bg-primary ms-1" style="font-size:.7rem;">Staff</span>{% endif %}
+          </strong>
+          <span>Joined {{ target_user.date_joined|date:"d M Y" }}
+            &nbsp;·&nbsp;
+            Last login: {% if target_user.last_login %}{{ target_user.last_login|date:"d M Y H:i" }}{% else %}Never{% endif %}
+          </span>
+        </div>
+        {% if target_user.is_active %}
+          <span class="badge bg-success">Active</span>
+        {% else %}
+          <span class="badge bg-danger">Inactive</span>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <form method="post">
+        {% csrf_token %}
+
+        <!-- Account -->
+        <div class="ue-section">
+          <div class="ue-section-title"><i class="fas fa-lock" style="margin-right:.35rem;"></i>Account</div>
+          <div class="ue-grid">
+            <div class="form-group">
+              <label for="username">Username <span class="req">*</span></label>
+              <input type="text" id="username" name="username" required
+                     value="{% if target_user %}{{ target_user.username }}{% endif %}">
+            </div>
+            <div class="form-group">
+              <label for="email">Email</label>
+              <input type="email" id="email" name="email"
+                     value="{% if target_user %}{{ target_user.email }}{% endif %}">
+            </div>
+            <div class="form-group">
+              <label for="password">
+                {% if form_action == 'edit' %}New Password{% else %}Password <span class="req">*</span>{% endif %}
+              </label>
+              <input type="password" id="password" name="password"
+                     {% if form_action == 'create' %}required{% endif %}
+                     placeholder="{% if form_action == 'edit' %}Leave blank to keep current{% endif %}">
+              <span class="hint">Minimum 8 characters.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Personal Info -->
+        <div class="ue-section">
+          <div class="ue-section-title"><i class="fas fa-id-card" style="margin-right:.35rem;"></i>Personal Information</div>
+          <div class="ue-grid">
+            <div class="form-group">
+              <label for="first_name">First Name</label>
+              <input type="text" id="first_name" name="first_name"
+                     value="{% if target_user %}{{ target_user.first_name }}{% endif %}">
+            </div>
+            <div class="form-group">
+              <label for="last_name">Last Name</label>
+              <input type="text" id="last_name" name="last_name"
+                     value="{% if target_user %}{{ target_user.last_name }}{% endif %}">
+            </div>
+            <div class="form-group">
+              <label for="affiliation">Affiliation</label>
+              <input type="text" id="affiliation" name="affiliation"
+                     value="{% if profile %}{{ profile.affiliation|default:'' }}{% endif %}">
+            </div>
+            <div class="form-group">
+              <label for="qualification">Qualification</label>
+              <input type="text" id="qualification" name="qualification"
+                     value="{% if profile %}{{ profile.qualification|default:'' }}{% endif %}">
+            </div>
+            <div class="form-group">
+              <label for="orcid">ORCID</label>
+              <input type="text" id="orcid" name="orcid"
+                     placeholder="0000-0000-0000-0000"
+                     value="{% if profile %}{{ profile.orcid|default:'' }}{% endif %}">
+              <span class="hint">Format: 0000-0000-0000-0000</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Permissions -->
+        <div class="ue-section">
+          <div class="ue-section-title"><i class="fas fa-shield-alt" style="margin-right:.35rem;"></i>Permissions</div>
+          <div class="ue-checks">
+            <label class="ue-check-item">
+              <input type="checkbox" name="is_active"
+                {% if form_action == 'create' %}checked
+                {% elif target_user and target_user.is_active %}checked{% endif %}>
+              <div>
+                <span>Active</span><br>
+                <small>User can log in</small>
+              </div>
+            </label>
+            {% if request.user.is_superuser %}
+            <label class="ue-check-item">
+              <input type="checkbox" name="is_staff"
+                {% if target_user and target_user.is_staff %}checked{% endif %}>
+              <div>
+                <span>Staff / Admin</span><br>
+                <small>Access to admin area</small>
+              </div>
+            </label>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Roles -->
+        <div class="ue-section">
+          <div class="ue-section-title"><i class="fas fa-tag" style="margin-right:.35rem;"></i>Roles</div>
+          <div class="roles-grid">
+            {% for role in all_roles %}
+            <label class="role-card {% if role.pk in user_role_ids %}selected{% endif %}" id="rc-{{ role.pk }}">
+              <input type="checkbox" name="roles" value="{{ role.pk }}"
+                     {% if role.pk in user_role_ids %}checked{% endif %}
+                     onchange="toggleRoleCard(this)">
+              <div>
+                <div class="rc-label">{{ role.get_role_display }}</div>
+                {% if role.description %}
+                <div class="rc-desc">{{ role.description|truncatechars:60 }}</div>
+                {% endif %}
+              </div>
+            </label>
+            {% empty %}
+            <p style="color:#94a3b8; font-size:.85rem;">No roles defined yet.</p>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="ue-footer">
+          <a href="{% url 'admin_user_list' %}" class="btn btn-secondary">Cancel</a>
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save"></i>
+            {% if form_action == 'create' %}Create User{% else %}Save Changes{% endif %}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleRoleCard(checkbox) {
+  const card = checkbox.closest('.role-card');
+  card.classList.toggle('selected', checkbox.checked);
+}
+</script>
+{% endblock %}

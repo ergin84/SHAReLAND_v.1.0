@@ -1,37 +1,72 @@
-from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse, HttpResponseRedirect
-from django.core.exceptions import ValidationError
-from django.db import models
-from django.shortcuts import render, get_object_or_404, redirect
-from .shapefile_utils import extract_geometry_from_shapefile
+import csv
+import json
+import logging
+import os
+import re
+from collections import defaultdict
+from datetime import timedelta
+
+logger = logging.getLogger(__name__)
+
+from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.models import User
-from django.views.generic import (
-    ListView,
-    DetailView,
-    CreateView,
-    UpdateView,
-    DeleteView
-)
-from collections import defaultdict
-import re
-import os
-import json
+from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
-from django.conf import settings
-from .models import (
-    Research, Typology, TypologyDetail, ResearchAuthor, Province,
-    Municipality, SiteResearch, Investigation, SiteBibliography, Sources, 
-    SiteSources, Image, Bibliography, SiteRelatedDocumentation, ArchEvBiblio, 
-    ArchEvSources, ArchEvRelatedDoc, ArchEvResearch, SiteInvestigation, 
-    SiteArchEvidence, Site, ArchaeologicalEvidence, SiteToponymy, Interpretation,
-    Chronology, SourcesType, ImageType, ImageScale
-)
-from django.urls import reverse_lazy, reverse
-from django.contrib.staticfiles.views import serve
-from .forms import ResearchForm, SiteForm, ArchaeologicalEvidenceForm
-from .utils import parse_geometry_string, create_folium_map
+from django.core.paginator import Paginator
+from django.db import connection, models
+from django.db.models import Q
+from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse, reverse_lazy
+from django.utils import timezone
 from django.views.decorators.http import require_POST
+from django.views.generic import (
+    CreateView,
+    DeleteView,
+    DetailView,
+    ListView,
+    UpdateView,
+)
+
+from .audit_models import AuditLog
+from .forms import ArchaeologicalEvidenceForm, ResearchForm, SiteForm
+from .models import SiteSettings
+from .models import (
+    ArchEvBiblio,
+    ArchEvRelatedDoc,
+    ArchEvResearch,
+    ArchEvSources,
+    ArchaeologicalEvidence,
+    Bibliography,
+    Chronology,
+    Image,
+    ImageScale,
+    ImageType,
+    Interpretation,
+    Investigation,
+    Municipality,
+    Province,
+    Research,
+    ResearchAuthor,
+    Site,
+    SiteArchEvidence,
+    SiteBibliography,
+    SiteInvestigation,
+    SiteRelatedDocumentation,
+    SiteResearch,
+    SiteSources,
+    SiteToponymy,
+    Sources,
+    SourcesType,
+    Typology,
+    TypologyDetail,
+)
+from .shapefile_utils import extract_geometry_from_shapefile
+from .utils import create_folium_map, parse_geometry_string
+from .utils.author_user import find_or_create_user_as_author, get_or_update_user_profile
 
 
 
@@ -65,27 +100,80 @@ def save_uploaded_image(image_file, subfolder='images'):
         return None
 
 
+def _parse_team_members(text):
+    """Parse 'Name | Role' multiline text into list of dicts with initials."""
+    members = []
+    for line in (text or '').splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split('|', 1)
+        name = parts[0].strip()
+        role = parts[1].strip() if len(parts) > 1 else ''
+        # Build initials from first two words
+        words = name.split()
+        initials = ''.join(w[0].upper() for w in words[:2]) if words else '?'
+        members.append({'name': name, 'role': role, 'initials': initials})
+    return members
+
+
 def home(request):
-    """
-    Home page view with statistics
-    """
-    from django.db.models import Count
-    # Get statistics for the homepage
+    """Home page with statistics and project information."""
     total_research = Research.objects.count()
     total_sites = Site.objects.count()
     total_evidence = ArchaeologicalEvidence.objects.count()
     total_users = User.objects.filter(is_active=True).count()
-    
+
+    site_cfg = SiteSettings.load()
+
+    # ── Key Information: resolve values with Python fallbacks ──
+    ki_date        = (site_cfg.project_date     if site_cfg and site_cfg.project_date     else '2024 \u2013 ongoing')
+    ki_institution = (site_cfg.institution_name if site_cfg and site_cfg.institution_name else 'Università degli Studi Roma Tre')
+    ki_dept        = (site_cfg.institution_dept if site_cfg and site_cfg.institution_dept else 'Dipartimento di Studi Umanistici')
+    ki_lab         = (site_cfg.lab_name         if site_cfg and site_cfg.lab_name         else 'Archeopaesaggi Roma Tre')
+    ki_instagram   = (site_cfg.lab_instagram    if site_cfg and site_cfg.lab_instagram    else 'archeopaesaggi_roma3')
+    ki_phd_title   = (site_cfg.phd_title        if site_cfg and site_cfg.phd_title        else 'Shared Archaeological Landscapes / Paesaggi Archeologici Condivisi')
+    ki_phd_person  = (site_cfg.phd_researcher   if site_cfg and site_cfg.phd_researcher   else 'Margherita Bottoni')
+    ki_phd_years   = (site_cfg.phd_years        if site_cfg and site_cfg.phd_years        else '2024\u20132027')
+
+    # ── Team: parse 'Name | Role' lines ────────────────────────
+    team_coordinators = _parse_team_members(site_cfg.team_coordinators if site_cfg else '')
+    team_technical    = _parse_team_members(site_cfg.team_technical    if site_cfg else '')
+
+    if not team_coordinators:
+        team_coordinators = [
+            {'name': 'Emanuele Farinetti', 'role': 'Project Coordinator \u2014 Università Roma Tre', 'initials': 'EF'},
+            {'name': 'Margherita Bottoni', 'role': 'Project Coordinator & PhD Researcher',            'initials': 'MB'},
+        ]
+    if not team_technical:
+        team_technical = [
+            {'name': 'Emanuele Bellini', 'role': 'Technical Developer', 'initials': 'EB'},
+            {'name': 'Ergin Mehmeti',    'role': 'Technical Developer', 'initials': 'EM'},
+        ]
+
     context = {
         'total_research': total_research,
         'total_sites': total_sites,
         'total_evidence': total_evidence,
         'total_users': total_users,
+        # Key info
+        'ki_date':       ki_date,
+        'ki_institution': ki_institution,
+        'ki_dept':        ki_dept,
+        'ki_lab':         ki_lab,
+        'ki_instagram':   ki_instagram,
+        'ki_phd_title':   ki_phd_title,
+        'ki_phd_person':  ki_phd_person,
+        'ki_phd_years':   ki_phd_years,
+        # Team
+        'team_coordinators': team_coordinators,
+        'team_technical':    team_technical,
     }
     return render(request, 'frontend/home.html', context)
 
 
 def getfile(request):
+    from django.contrib.staticfiles.views import serve
     return serve(request, 'File')
 
 
@@ -224,7 +312,6 @@ class ResearchCatalogView(ListView):
         search_query = self.request.GET.get('q', '').strip()
         
         if search_query:
-            from django.db.models import Q
             queryset = queryset.filter(
                 Q(title__icontains=search_query) |
                 Q(abstract__icontains=search_query) |
@@ -241,9 +328,27 @@ class ResearchCatalogView(ListView):
 
         if not researches:
             context['catalog_entries'] = []
+            context['map_data_json'] = []
             return context
 
         research_ids = [research.id for research in researches]
+
+        # Batch-load research authors (avoids N+1)
+        def _display_name(user):
+            try:
+                return user.profile.get_display_name()
+            except Exception:
+                return user.get_full_name() or user.username
+
+        author_links = ResearchAuthor.objects.filter(
+            id_research_id__in=research_ids
+        ).select_related('id_author', 'id_author__profile')
+        authors_by_research = defaultdict(list)
+        for link in author_links:
+            if link.id_author:
+                authors_by_research[link.id_research_id].append(
+                    _display_name(link.id_author)
+                )
 
         site_links = SiteResearch.objects.filter(
             id_research_id__in=research_ids
@@ -265,27 +370,19 @@ class ResearchCatalogView(ListView):
             id_site_id__in=site_ids
         ).select_related('id_archaeological_evidence')
         site_evidence_map = defaultdict(list)
-        # Track evidence IDs per site to avoid duplicates
-        site_evidence_ids_map = defaultdict(set)
         for relation in site_evidence_links:
             evidence = relation.id_archaeological_evidence
-            if evidence and evidence.id not in site_evidence_ids_map[relation.id_site_id]:
+            if evidence:
                 site_evidence_map[relation.id_site_id].append(evidence)
-                site_evidence_ids_map[relation.id_site_id].add(evidence.id)
 
         direct_evidence_links = ArchEvResearch.objects.filter(
             id_research__in=research_ids
         ).select_related('id_archaeological_evidence')
         direct_evidence_map = defaultdict(list)
-        # Track evidence IDs per research to avoid duplicates
-        direct_evidence_ids_map = defaultdict(set)
         for relation in direct_evidence_links:
             evidence = relation.id_archaeological_evidence
-            # id_research is an IntegerField, not a ForeignKey, so access it directly
-            research_id = relation.id_research
-            if evidence and research_id and evidence.id not in direct_evidence_ids_map[research_id]:
-                direct_evidence_map[research_id].append(evidence)
-                direct_evidence_ids_map[research_id].add(evidence.id)
+            if evidence:
+                direct_evidence_map[relation.id_research].append(evidence)
 
         catalog_entries = []
         map_data = []
@@ -293,7 +390,6 @@ class ResearchCatalogView(ListView):
             sites_payload = []
             site_markers = []
             evidence_markers = []
-            added_evidence_ids = set()  # Track evidence IDs to prevent duplicates
 
             def _to_float(value):
                 try:
@@ -322,9 +418,6 @@ class ResearchCatalogView(ListView):
 
                 # Evidences linked to this site
                 for ev in site_evidence_map.get(site.id, []):
-                    # Skip if this evidence was already added (e.g., as a direct evidence)
-                    if ev.id in added_evidence_ids:
-                        continue
                     ev_lat = _to_float(getattr(ev, 'lat', None))
                     ev_lon = _to_float(getattr(ev, 'lon', None))
                     if ev_lat is not None and ev_lon is not None:
@@ -337,39 +430,16 @@ class ResearchCatalogView(ListView):
                             'region': getattr(ev.id_region, 'denominazione_regione', None),
                             'municipality': getattr(ev.id_municipality, 'denominazione_comune', None),
                         })
-                        added_evidence_ids.add(ev.id)
 
-            # Get all evidence IDs that are already shown under sites
-            # Collect evidence IDs from all sites in this research
-            site_evidence_ids_in_research = set()
-            for site in site_map.get(research.id, []):
-                site_evidences = site_evidence_map.get(site.id, [])
-                for ev in site_evidences:
-                    # Ensure we're using integer IDs for consistent comparison
-                    site_evidence_ids_in_research.add(int(ev.id))
-            
-            # Filter direct evidences to exclude those already shown under sites
-            # This prevents showing the same evidence twice (once as direct, once under a site)
-            direct_evidences_filtered = []
-            direct_evidences_for_research = direct_evidence_map.get(research.id, [])
-            for ev in direct_evidences_for_research:
-                # Only include if this evidence is NOT already shown under any site
-                # Use int() to ensure consistent type comparison
-                if int(ev.id) not in site_evidence_ids_in_research:
-                    direct_evidences_filtered.append(ev)
-            
             catalog_entries.append({
                 'research': research,
                 'sites': sites_payload,
-                'direct_evidences': direct_evidences_filtered,
+                'direct_evidences': direct_evidence_map.get(research.id, []),
+                'author_names': authors_by_research.get(research.id, []),
             })
 
             # Direct evidences linked to research (without a site)
-            # Only add if not already added as a site evidence
             for ev in direct_evidence_map.get(research.id, []):
-                # Skip if this evidence was already added (e.g., as a site evidence)
-                if ev.id in added_evidence_ids:
-                    continue
                 ev_lat = _to_float(getattr(ev, 'lat', None))
                 ev_lon = _to_float(getattr(ev, 'lon', None))
                 if ev_lat is not None and ev_lon is not None:
@@ -381,12 +451,14 @@ class ResearchCatalogView(ListView):
                         'region': getattr(ev.id_region, 'denominazione_regione', None),
                         'municipality': getattr(ev.id_municipality, 'denominazione_comune', None),
                     })
-                    added_evidence_ids.add(ev.id)
 
             research_polygon = parse_geometry_string(research.geometry) if getattr(research, 'geometry', None) else None
             map_data.append({
                 'id': research.id,
                 'title': research.title or f"Research #{research.id}",
+                'year': research.year,
+                'type': research.type,
+                'abstract': (research.abstract or '')[:200],
                 'geometry': research_polygon,
                 'sites': site_markers,
                 'evidences': evidence_markers,
@@ -426,27 +498,21 @@ class ResearchCreateView(LoginRequiredMixin, CreateView):
             user_id = self.request.POST.get('author_user_id')
             
             if user_id:
-                # User found
-                author_user = User.objects.get(pk=user_id)
+                author_user = get_object_or_404(User, pk=user_id)
                 affiliation = self.request.POST.get('author_affiliation', '')
                 orcid = self.request.POST.get('author_orcid', '')
-                # Update profile with author fields
-                from .utils.author_user import get_or_update_user_profile
                 author_user = get_or_update_user_profile(author_user, affiliation=affiliation, orcid=orcid)
             else:
-                # Create new user and author
                 author_name = self.request.POST.get('author_name')
                 author_surname = self.request.POST.get('author_surname')
                 author_email = self.request.POST.get('author_email')
                 affiliation = self.request.POST.get('author_affiliation', '')
                 orcid = self.request.POST.get('author_orcid', '')
-                
+
                 if not author_name or not author_surname or not author_email:
                     form.add_error(None, 'Name, surname, and email are required for new author')
                     return self.form_invalid(form)
-                
-                # Use find_or_create_user_as_author to avoid duplicates
-                from .utils.author_user import find_or_create_user_as_author
+
                 author_user = find_or_create_user_as_author(
                     author_name, author_surname, author_email,
                     affiliation=affiliation, orcid=orcid
@@ -482,18 +548,14 @@ class ResearchCreateView(LoginRequiredMixin, CreateView):
                 if co_user:
                     co_affiliation = self.request.POST.get(f'coauthor_affiliation_{index}', '')
                     co_orcid = self.request.POST.get(f'coauthor_orcid_{index}', '')
-                    from .utils.author_user import get_or_update_user_profile
                     co_user = get_or_update_user_profile(co_user, affiliation=co_affiliation, orcid=co_orcid)
                     ResearchAuthor.objects.get_or_create(id_research=self.object, id_author=co_user)
             else:
-                # Check if new co-author fields are provided
                 name = self.request.POST.get(f'coauthor_name_{index}')
                 surname = self.request.POST.get(f'coauthor_surname_{index}')
                 email = self.request.POST.get(f'coauthor_email_{index}')
 
                 if name and surname and email:
-                    # Use find_or_create_user_as_author to avoid duplicates
-                    from .utils.author_user import find_or_create_user_as_author
                     co_affiliation = self.request.POST.get(f'coauthor_affiliation_{index}', '')
                     co_orcid = self.request.POST.get(f'coauthor_orcid_{index}', '')
                     co_user = find_or_create_user_as_author(
@@ -609,9 +671,6 @@ class ResearchDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-from .forms import ResearchForm  # assicurati che sia importato
-
-
 class ResearchUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     model = Research
     form_class = ResearchForm
@@ -671,10 +730,9 @@ class ResearchUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
             user_id = self.request.POST.get('author_user_id')
             
             if user_id:
-                author_user = User.objects.get(pk=user_id)
+                author_user = get_object_or_404(User, pk=user_id)
                 affiliation = self.request.POST.get('author_affiliation', '')
                 orcid = self.request.POST.get('author_orcid', '')
-                from .utils.author_user import get_or_update_user_profile
                 author_user = get_or_update_user_profile(author_user, affiliation=affiliation, orcid=orcid)
             else:
                 author_name = self.request.POST.get('author_name')
@@ -682,31 +740,27 @@ class ResearchUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
                 author_email = self.request.POST.get('author_email')
                 affiliation = self.request.POST.get('author_affiliation', '')
                 orcid = self.request.POST.get('author_orcid', '')
-                
+
                 if not author_name or not author_surname or not author_email:
                     form.add_error(None, 'Name, surname, and email are required for new author')
                     return self.form_invalid(form)
-                
-                from .utils.author_user import find_or_create_user_as_author
+
                 author_user = find_or_create_user_as_author(
                     author_name, author_surname, author_email,
                     affiliation=affiliation, orcid=orcid
                 )
 
-        # Add main author to ResearchAuthor table
         ResearchAuthor.objects.get_or_create(id_research=self.object, id_author=author_user)
 
-        # Handle co-authors
         index = 0
         while True:
             co_user_id = self.request.POST.get(f'coauthor_user_id_{index}')
-            
+
             if co_user_id:
                 co_user = User.objects.filter(pk=co_user_id).first()
                 if co_user:
                     co_affiliation = self.request.POST.get(f'coauthor_affiliation_{index}', '')
                     co_orcid = self.request.POST.get(f'coauthor_orcid_{index}', '')
-                    from .utils.author_user import get_or_update_user_profile
                     co_user = get_or_update_user_profile(co_user, affiliation=co_affiliation, orcid=co_orcid)
                     ResearchAuthor.objects.get_or_create(id_research=self.object, id_author=co_user)
             else:
@@ -715,7 +769,6 @@ class ResearchUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
                 email = self.request.POST.get(f'coauthor_email_{index}')
 
                 if name and surname and email:
-                    from .utils.author_user import find_or_create_user_as_author
                     co_affiliation = self.request.POST.get(f'coauthor_affiliation_{index}', '')
                     co_orcid = self.request.POST.get(f'coauthor_orcid_{index}', '')
                     co_user = find_or_create_user_as_author(
@@ -764,15 +817,17 @@ def load_typology_details(request):
     return JsonResponse(list(details), safe=False)
 
 
-# frontend/views.py
 def load_provinces(request):
     codice_regione = request.GET.get('region')
     if not codice_regione:
         return JsonResponse([], safe=False)
-
-    # Forza codice_regione come stringa per confrontarla con un campo text
-    provinces = Province.objects.filter(codice_regione=int(codice_regione)).values('id', 'sigla_provincia',
-                                                                                   'denominazione_provincia')
+    try:
+        region_id = int(codice_regione)
+    except (ValueError, TypeError):
+        return JsonResponse([], safe=False)
+    provinces = Province.objects.filter(codice_regione=region_id).values(
+        'id', 'sigla_provincia', 'denominazione_provincia'
+    )
     return JsonResponse(list(provinces), safe=False)
 
 
@@ -785,20 +840,19 @@ def load_municipalities(request):
     return JsonResponse(list(municipalities), safe=False)
 
 
-@csrf_exempt
+@login_required
+@require_POST
 def preview_shapefile(request):
-    if request.method == 'POST' and request.FILES.get('shapefile'):
-        try:
-            geometry_text = extract_geometry_from_shapefile(request.FILES['shapefile'])
-            return JsonResponse({'geometry': geometry_text})
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=400)
-    return JsonResponse({'error': 'Invalid request'}, status=400)
+    if not request.FILES.get('shapefile'):
+        return JsonResponse({'error': 'No shapefile provided'}, status=400)
+    try:
+        geometry_text = extract_geometry_from_shapefile(request.FILES['shapefile'])
+        return JsonResponse({'geometry': geometry_text})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
 
 
-from .models import SiteToponymy, Interpretation
-
-
+@login_required
 def search_authors(request):
     """
     Search for users to add as authors to research.
@@ -807,9 +861,8 @@ def search_authors(request):
     """
     query = request.GET.get('q', '').strip()
     results = []
-    
-    if query and len(query) >= 3:  # Minimum 3 characters
-        from django.db.models import Q
+
+    if query and len(query) >= 3:
         
         # Search by last_name (surname) in User model - highest priority
         user_surname_matches = User.objects.filter(
@@ -1127,19 +1180,11 @@ class SiteDetailView(DetailView):
         context['interpretation'] = Interpretation.objects.filter(id_site=site.id).first()
         context['site_investigation'] = SiteInvestigation.objects.filter(id_site=site).select_related('id_investigation').first()
         
-        # Related evidences - deduplicate to avoid showing the same evidence twice
+        # Related evidences
         site_evidence_links = SiteArchEvidence.objects.filter(
             id_site=site
         ).select_related('id_archaeological_evidence')
-        # Use a set to track seen evidence IDs and avoid duplicates
-        seen_evidence_ids = set()
-        site_evidences_list = []
-        for link in site_evidence_links:
-            evidence = link.id_archaeological_evidence
-            if evidence and evidence.id not in seen_evidence_ids:
-                site_evidences_list.append(evidence)
-                seen_evidence_ids.add(evidence.id)
-        context['site_evidences'] = site_evidences_list
+        context['site_evidences'] = [link.id_archaeological_evidence for link in site_evidence_links]
         
         # Related researches
         site_research_links = SiteResearch.objects.filter(id_site=site).select_related('id_research')
@@ -1156,20 +1201,8 @@ class SiteDetailView(DetailView):
         # Multiple related documentation (all entries)
         context['site_docs'] = SiteRelatedDocumentation.objects.filter(id_site=site)
         
-        # Multiple images (all entries) - fetch ImageType and ImageScale objects
-        site_images = list(Image.objects.filter(id_site=site))
-        # Resolve ImageType and ImageScale for each image
-        image_type_ids = [img.id_image_type for img in site_images if img.id_image_type]
-        image_scale_ids = [img.id_image_scale for img in site_images if img.id_image_scale]
-        image_types = {it.id: it for it in ImageType.objects.filter(id__in=image_type_ids)} if image_type_ids else {}
-        image_scales = {is_obj.id: is_obj for is_obj in ImageScale.objects.filter(id__in=image_scale_ids)} if image_scale_ids else {}
-        # Add resolved objects to images
-        for img in site_images:
-            if img.id_image_type and img.id_image_type in image_types:
-                img.image_type_obj = image_types[img.id_image_type]
-            if img.id_image_scale and img.id_image_scale in image_scales:
-                img.image_scale_obj = image_scales[img.id_image_scale]
-        context['site_images'] = site_images
+        # Multiple images (all entries)
+        context['site_images'] = Image.objects.filter(id_site=site)
         
         # Create Folium map for site geometry
         map_html = None
@@ -1189,8 +1222,10 @@ class SiteUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     template_name = 'frontend/site_form.html'
 
     def get_success_url(self):
-        # Redirect to the updated site's detail page
-        return reverse('site_detail', args=[self.object.pk])
+        research_id = self.request.GET.get('research_id')
+        if research_id:
+            return reverse('research-detail', args=[research_id])
+        return reverse('evidence_list')  # fallback if no research_id
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1258,21 +1293,11 @@ class SiteUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         # Interpretation
         try:
             interp = Interpretation.objects.get(id_site=site.id)
-            # Set functional_class (model instance or ID)
-            if interp.id_functional_class:
-                initial['functional_class'] = interp.id_functional_class
-            # Set typology (model instance or ID) - needed for queryset setup
-            if interp.id_typology:
-                initial['typology'] = interp.id_typology
-            # Set typology_detail (model instance or ID) - needed for queryset setup
-            if interp.id_typology_detail:
-                initial['typology_detail'] = interp.id_typology_detail
-            # Set chronology
-            if interp.id_chronology:
-                initial['chronology'] = interp.id_chronology
-            # Set certainty level
-            if interp.chronology_certainty_level is not None:
-                initial['chronology_certainty_level'] = interp.chronology_certainty_level
+            initial['functional_class'] = interp.id_functional_class
+            initial['typology'] = interp.id_typology
+            initial['typology_detail'] = interp.id_typology_detail
+            initial['chronology'] = interp.id_chronology
+            initial['chronology_certainty_level'] = interp.chronology_certainty_level
         except Interpretation.DoesNotExist:
             pass
 
@@ -1286,7 +1311,7 @@ class SiteUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
         # SiteBibliography - get first if multiple exist
         site_biblio = SiteBibliography.objects.select_related('id_bibliography').filter(id_site=site.id).first()
-        if site_biblio and site_biblio.id_bibliography:
+        if site_biblio:
             biblio = site_biblio.id_bibliography  # Access the related Bibliography
             initial['title'] = biblio.title
             initial['author'] = biblio.author
@@ -1296,7 +1321,7 @@ class SiteUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
         # SiteSources - get first if multiple exist
         site_sources = SiteSources.objects.select_related('id_sources').filter(id_site=site.id).first()
-        if site_sources and site_sources.id_sources:
+        if site_sources:
             source = site_sources.id_sources
             initial['name'] = source.name
             initial['documentation_chronology'] = source.id_chronology
@@ -1773,20 +1798,8 @@ class EvidenceDetailView(DetailView):
         # Multiple related documentation (all entries)
         context['arch_ev_related_docs'] = ArchEvRelatedDoc.objects.filter(id_archaeological_evidence=evidence.id)
         
-        # Multiple images (all entries) - fetch ImageType and ImageScale objects
-        evidence_images = list(Image.objects.filter(id_archaeological_evidence=evidence))
-        # Resolve ImageType and ImageScale for each image
-        image_type_ids = [img.id_image_type for img in evidence_images if img.id_image_type]
-        image_scale_ids = [img.id_image_scale for img in evidence_images if img.id_image_scale]
-        image_types = {it.id: it for it in ImageType.objects.filter(id__in=image_type_ids)} if image_type_ids else {}
-        image_scales = {is_obj.id: is_obj for is_obj in ImageScale.objects.filter(id__in=image_scale_ids)} if image_scale_ids else {}
-        # Add resolved objects to images
-        for img in evidence_images:
-            if img.id_image_type and img.id_image_type in image_types:
-                img.image_type_obj = image_types[img.id_image_type]
-            if img.id_image_scale and img.id_image_scale in image_scales:
-                img.image_scale_obj = image_scales[img.id_image_scale]
-        context['evidence_images'] = evidence_images
+        # Multiple images (all entries)
+        context['evidence_images'] = Image.objects.filter(id_archaeological_evidence=evidence)
         
         # Related sites
         site_links = SiteArchEvidence.objects.filter(
@@ -1826,8 +1839,10 @@ class EvidenceUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     template_name = 'frontend/evidence_form.html'
 
     def get_success_url(self):
-        # Redirect to the updated evidence's detail page
-        return reverse('evidence_detail', args=[self.object.pk])
+        research_id = self.request.GET.get('research_id')
+        if research_id:
+            return reverse('research-detail', args=[research_id])
+        return reverse('evidence_list')  # fallback if no research_id
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1933,102 +1948,78 @@ class EvidenceUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         
         # Now save all bibliographies from the form
         biblio_index = 0
-        max_iterations = 1000  # Safety limit to prevent infinite loops
-        while biblio_index < max_iterations:
+        while True:
             title = self.request.POST.get(f'ev_biblio_title_{biblio_index}')
             author = self.request.POST.get(f'ev_biblio_author_{biblio_index}')
             year = self.request.POST.get(f'ev_biblio_year_{biblio_index}')
             doi = self.request.POST.get(f'ev_biblio_doi_{biblio_index}')
             tipo = self.request.POST.get(f'ev_biblio_tipo_{biblio_index}')
             
-            # Break if no more bibliography entries (check if any field exists for this index)
-            if title is None and author is None and year is None and doi is None and tipo is None:
+            # Break if no more bibliography entries
+            if title is None:
                 break
             
             # Only save if at least one field is filled
             if title or author or year or doi or tipo:
-                try:
-                    bibliography = Bibliography.objects.create(
-                        title=title or '',
-                        author=author or '',
-                        year=int(year) if year and year.strip() else None,
-                        doi=doi or '',
-                        tipo=tipo or ''
-                    )
-                    ArchEvBiblio.objects.create(
-                        id_archaeological_evidence=arch_ev,
-                        id_bibliography=bibliography
-                    )
-                except (ValueError, TypeError) as e:
-                    # Skip invalid entries
-                    pass
+                bibliography = Bibliography.objects.create(
+                    title=title or '',
+                    author=author or '',
+                    year=int(year) if year else None,
+                    doi=doi or '',
+                    tipo=tipo or ''
+                )
+                ArchEvBiblio.objects.create(
+                    id_archaeological_evidence=arch_ev,
+                    id_bibliography=bibliography
+                )
             
             biblio_index += 1
 
         # Save/update Multiple Sources - remove all old and create new ones
         ArchEvSources.objects.filter(id_archaeological_evidence=arch_ev).delete()
         ev_source_index = 0
-        max_iterations = 1000  # Safety limit to prevent infinite loops
-        while ev_source_index < max_iterations:
+        while True:
             source_name = self.request.POST.get(f'ev_source_name_{ev_source_index}')
+            if source_name is None:
+                break
             id_chronology = self.request.POST.get(f'ev_source_chronology_{ev_source_index}')
             id_source_type = self.request.POST.get(f'ev_source_type_{ev_source_index}')
-            
-            # Break if no more source entries
-            if source_name is None and id_chronology is None and id_source_type is None:
-                break
-                
             if source_name or id_chronology or id_source_type:
-                try:
-                    source = Sources.objects.create(
-                        name=source_name or '',
-                        id_chronology_id=id_chronology if id_chronology else None,
-                        id_sources_typology_id=id_source_type if id_source_type else None
-                    )
-                    ArchEvSources.objects.create(
-                        id_archaeological_evidence=arch_ev,
-                        id_sources=source
-                    )
-                except (ValueError, TypeError) as e:
-                    # Skip invalid entries
-                    pass
+                source = Sources.objects.create(
+                    name=source_name or '',
+                    id_chronology_id=id_chronology if id_chronology else None,
+                    id_sources_typology_id=id_source_type if id_source_type else None
+                )
+                ArchEvSources.objects.create(
+                    id_archaeological_evidence=arch_ev,
+                    id_sources=source
+                )
             ev_source_index += 1
 
         # Save/update Multiple Related Docs - remove all old and create new ones
         ArchEvRelatedDoc.objects.filter(id_archaeological_evidence=arch_ev).delete()
         ev_doc_index = 0
-        max_iterations = 1000  # Safety limit to prevent infinite loops
-        while ev_doc_index < max_iterations:
+        while True:
             doc_name = self.request.POST.get(f'ev_doc_name_{ev_doc_index}')
+            if doc_name is None:
+                break
             doc_author = self.request.POST.get(f'ev_doc_author_{ev_doc_index}')
             doc_year = self.request.POST.get(f'ev_doc_year_{ev_doc_index}')
-            
-            # Break if no more doc entries
-            if doc_name is None and doc_author is None and doc_year is None:
-                break
-                
             if doc_name or doc_author or doc_year:
-                try:
-                    ArchEvRelatedDoc.objects.create(
-                        id_archaeological_evidence=arch_ev,
-                        name=doc_name or '',
-                        author=doc_author or '',
-                        year=int(doc_year) if doc_year and doc_year.strip() else None
-                    )
-                except (ValueError, TypeError) as e:
-                    # Skip invalid entries
-                    pass
+                ArchEvRelatedDoc.objects.create(
+                    id_archaeological_evidence=arch_ev,
+                    name=doc_name or '',
+                    author=doc_author or '',
+                    year=int(doc_year) if doc_year else None
+                )
             ev_doc_index += 1
 
         # Save/update Multiple Images - remove all old and create new ones
         from .models import Image
         Image.objects.filter(id_archaeological_evidence=arch_ev).delete()
         ev_image_index = 0
-        max_iterations = 1000  # Safety limit to prevent infinite loops
-        while ev_image_index < max_iterations:
+        while True:
             file_name = self.request.POST.get(f'ev_image_file_name_{ev_image_index}')
-            
-            # Break if no more image entries
             if file_name is None:
                 break
             
@@ -2059,24 +2050,20 @@ class EvidenceUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
             
             # Only save if at least one significant field is filled
             if file_name or image_type_id or desc_image or source_url:
-                try:
-                    Image.objects.create(
-                        id_archaeological_evidence=arch_ev,
-                        file_name=file_name or '',
-                        id_image_type=image_type_id if image_type_id else None,
-                        id_image_scale=image_scale_id if image_scale_id else None,
-                        acquisition_date=acquisition_date if acquisition_date else None,
-                        desc_image=desc_image or '',
-                        format=format_val or '',
-                        projection=projection or '',
-                        spatial_resolution=spatial_resolution or '',
-                        author=author or '',
-                        source_url=source_url or '',
-                        key_words=key_words or ''
-                    )
-                except (ValueError, TypeError) as e:
-                    # Skip invalid entries
-                    pass
+                Image.objects.create(
+                    id_archaeological_evidence=arch_ev,
+                    file_name=file_name or '',
+                    id_image_type=image_type_id if image_type_id else None,
+                    id_image_scale=image_scale_id if image_scale_id else None,
+                    acquisition_date=acquisition_date if acquisition_date else None,
+                    desc_image=desc_image or '',
+                    format=format_val or '',
+                    projection=projection or '',
+                    spatial_resolution=spatial_resolution or '',
+                    author=author or '',
+                    source_url=source_url or '',
+                    key_words=key_words or ''
+                )
             
             ev_image_index += 1
 
@@ -2140,12 +2127,6 @@ class EvidenceDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
                 pass
         # If no research linked, allow authenticated users
         return self.request.user.is_authenticated
-
-
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.db import connection
-from django.core.paginator import Paginator
-from django.http import Http404
 
 
 def is_staff(user):
@@ -2441,9 +2422,6 @@ class AdminOnlyMixin(UserPassesTestMixin):
         return self.request.user.is_staff
     
     def handle_no_permission(self):
-        from django.contrib.auth.decorators import login_required
-        from django.shortcuts import redirect
-        from django.contrib import messages
         messages.error(self.request, "You do not have permission to access this page. Admin access required.")
         return redirect('home')
 
@@ -2458,38 +2436,30 @@ class AuditLogListView(LoginRequiredMixin, AdminOnlyMixin, ListView):
     context_object_name = 'logs'
     
     def get_queryset(self):
-        from .audit_models import AuditLog
         queryset = AuditLog.objects.all().select_related('user')
-        
-        # Filter by operation type
+
         operation = self.request.GET.get('operation')
         if operation and operation in ['CREATE', 'UPDATE', 'DELETE', 'VIEW']:
             queryset = queryset.filter(operation=operation)
-        
-        # Filter by model name
+
         model_name = self.request.GET.get('model')
         if model_name:
             queryset = queryset.filter(model_name__icontains=model_name)
-        
-        # Filter by username
+
         username = self.request.GET.get('user')
         if username:
             queryset = queryset.filter(user__username__icontains=username)
-        
-        # Date filter - last N days
+
         days = self.request.GET.get('days', '30')
         if days.isdigit():
-            from datetime import timedelta
-            from django.utils import timezone
             since = timezone.now() - timedelta(days=int(days))
             queryset = queryset.filter(timestamp__gte=since)
-        
+
         return queryset.order_by('-timestamp')
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        from .audit_models import AuditLog
-        
+
         # Add statistics
         all_logs = AuditLog.objects.all()
         context['total_logs'] = all_logs.count()
@@ -2510,38 +2480,29 @@ class AuditLogListView(LoginRequiredMixin, AdminOnlyMixin, ListView):
         return context
 
 
+@login_required
 def audit_log_export(request):
     """Export audit logs as CSV for admin users"""
-    from django.contrib.auth.decorators import user_passes_test
-    from django.http import HttpResponse
-    import csv
-    from .audit_models import AuditLog
-    
-    # Check if user is staff
     if not request.user.is_staff:
-        from django.contrib import messages
         messages.error(request, "You do not have permission to export logs.")
         return redirect('home')
-    
-    # Get filtered logs
+
     queryset = AuditLog.objects.all().select_related('user')
-    
+
     operation = request.GET.get('operation')
     if operation and operation in ['CREATE', 'UPDATE', 'DELETE', 'VIEW']:
         queryset = queryset.filter(operation=operation)
-    
+
     model_name = request.GET.get('model')
     if model_name:
         queryset = queryset.filter(model_name__icontains=model_name)
-    
+
     username = request.GET.get('user')
     if username:
         queryset = queryset.filter(user__username__icontains=username)
-    
+
     days = request.GET.get('days', '30')
     if days.isdigit():
-        from datetime import timedelta
-        from django.utils import timezone
         since = timezone.now() - timedelta(days=int(days))
         queryset = queryset.filter(timestamp__gte=since)
     
@@ -2568,8 +2529,6 @@ def audit_log_export(request):
 
 
 import subprocess
-from django.http import HttpResponse
-from django.contrib.auth.decorators import login_required, user_passes_test
 
 
 def is_staff(user):
@@ -2581,20 +2540,19 @@ def export_database(request):
     """
     Export the entire PostgreSQL database in custom format for migration/restore.
     Only staff/admin users can access.
+    Uses subprocess.run (not Popen) so the full dump is buffered before sending —
+    this avoids serving a corrupt/empty file when pg_dump fails mid-stream.
     """
     import datetime
-    from django.conf import settings
     db_name = os.environ.get('DB_NAME', getattr(settings, 'DATABASES', {}).get('default', {}).get('NAME'))
     db_user = os.environ.get('DB_USER', getattr(settings, 'DATABASES', {}).get('default', {}).get('USER'))
     db_password = os.environ.get('DB_PASSWORD', getattr(settings, 'DATABASES', {}).get('default', {}).get('PASSWORD'))
     db_host = os.environ.get('DB_HOST', getattr(settings, 'DATABASES', {}).get('default', {}).get('HOST', 'localhost'))
     db_port = os.environ.get('DB_PORT', getattr(settings, 'DATABASES', {}).get('default', {}).get('PORT', '5432'))
 
-    # File name with timestamp
     now = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
     filename = f"{db_name}_backup_{now}.dump"
 
-    # Run pg_dump in custom format
     env = os.environ.copy()
     env['PGPASSWORD'] = db_password
     cmd = [
@@ -2606,16 +2564,26 @@ def export_database(request):
         db_name
     ]
     try:
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
-        response = HttpResponse(proc.stdout, content_type='application/octet-stream')
+        # Wait for pg_dump to complete fully before touching the response.
+        # This guarantees we can inspect returncode/stderr before sending any bytes.
+        result = subprocess.run(cmd, capture_output=True, env=env)
+        if result.returncode != 0:
+            error_msg = result.stderr.decode(errors='replace')
+            logger.error("pg_dump failed (db=%s): %s", db_name, error_msg)
+            return HttpResponse(
+                f"Database export failed:\n{error_msg}",
+                status=500,
+                content_type='text/plain'
+            )
+        if result.stderr:
+            # Non-fatal warnings (e.g. skipped large objects) — log but still serve
+            logger.warning("pg_dump warnings (db=%s): %s", db_name, result.stderr.decode(errors='replace'))
+        response = HttpResponse(result.stdout, content_type='application/octet-stream')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
-        # Wait for process to finish and check for errors
-        _, stderr = proc.communicate()
-        if proc.returncode != 0:
-            return HttpResponse(f"Database export failed: {stderr.decode()}", status=500)
         return response
     except Exception as e:
-        return HttpResponse(f"Error running pg_dump: {str(e)}", status=500)
+        logger.exception("Unexpected error during pg_dump")
+        return HttpResponse(f"Error running pg_dump: {str(e)}", status=500, content_type='text/plain')
 
 
 @login_required
@@ -2625,596 +2593,196 @@ def import_database(request):
     """
     Import a PostgreSQL backup file (.dump or .sql) and restore the database.
     Only staff/admin users can access. Shows double warning in UI.
-    
-    This function automatically handles model mismatches:
-    - Skips deprecated tables (e.g., 'author' table removed in migration 0015)
-    - Handles foreign key constraints to deprecated tables
-    - Preprocesses SQL to remove problematic statements
-    - Runs Django migrations after restore to ensure system tables exist
+
+    Safety measures implemented:
+    - Automatic pre-restore backup taken before DROP DATABASE (safety net).
+    - Database identifiers quoted with psycopg2.sql.Identifier (no SQL injection).
+    - All temp files cleaned in a single finally block (no leak on any path).
+    - subprocess.run (blocking) used throughout for predictable error handling.
     """
-    import tempfile
+    import datetime
     import gzip
     import shutil
+    import tempfile
+    import psycopg2
+    from psycopg2 import sql as pgsql
+    from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+
     backup_file = request.FILES.get('backup_file')
     if not backup_file:
         return HttpResponse("No file uploaded.", status=400)
 
-    # Save uploaded file to temp location
-    with tempfile.NamedTemporaryFile(delete=False) as tmp:
-        for chunk in backup_file.chunks():
-            tmp.write(chunk)
-        tmp_path = tmp.name
-
-    # If gzip, decompress to plain file
-    is_gzip = backup_file.name.endswith('.gz')
+    # Track all temp paths so the finally block can clean them unconditionally
+    tmp_path = None
     decompressed_path = None
-    if is_gzip:
-        with tempfile.NamedTemporaryFile(delete=False) as tmp_dec:
-            decompressed_path = tmp_dec.name
-            with gzip.open(tmp_path, 'rb') as gz_in:
-                tmp_dec.write(gz_in.read())
-    # Get DB credentials
-    from django.conf import settings
-    import psycopg2
-    from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
-    
-    db_name = os.environ.get('DB_NAME', getattr(settings, 'DATABASES', {}).get('default', {}).get('NAME'))
-    db_user = os.environ.get('DB_USER', getattr(settings, 'DATABASES', {}).get('default', {}).get('USER'))
-    db_password = os.environ.get('DB_PASSWORD', getattr(settings, 'DATABASES', {}).get('default', {}).get('PASSWORD'))
-    db_host = os.environ.get('DB_HOST', getattr(settings, 'DATABASES', {}).get('default', {}).get('HOST', 'localhost'))
-    db_port = os.environ.get('DB_PORT', getattr(settings, 'DATABASES', {}).get('default', {}).get('PORT', '5432'))
-    
-    env = os.environ.copy()
-    env['PGPASSWORD'] = db_password
-    env['PATH'] = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
-    
-    # Drop and recreate DB using psycopg2 (no sudo needed, shareland_user has CREATEDB)
+    pre_restore_backup_path = None
+    sql_path = None
+
     try:
-        # Connect to postgres database to drop/create shareland_db
+        # ── Save uploaded file to disk ─────────────────────────────────────
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.upload') as tmp:
+            for chunk in backup_file.chunks():
+                tmp.write(chunk)
+            tmp_path = tmp.name
+
+        # ── Decompress if gzip ─────────────────────────────────────────────
+        is_gzip = backup_file.name.endswith('.gz')
+        if is_gzip:
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.decompressed') as tmp_dec:
+                decompressed_path = tmp_dec.name
+            with gzip.open(tmp_path, 'rb') as gz_in, open(decompressed_path, 'wb') as dec_out:
+                dec_out.write(gz_in.read())
+
+        # ── DB credentials ─────────────────────────────────────────────────
+        db_name = os.environ.get('DB_NAME', settings.DATABASES.get('default', {}).get('NAME'))
+        db_user = os.environ.get('DB_USER', settings.DATABASES.get('default', {}).get('USER'))
+        db_password = os.environ.get('DB_PASSWORD', settings.DATABASES.get('default', {}).get('PASSWORD'))
+        db_host = os.environ.get('DB_HOST', settings.DATABASES.get('default', {}).get('HOST', 'localhost'))
+        db_port = os.environ.get('DB_PORT', settings.DATABASES.get('default', {}).get('PORT', '5432'))
+
+        env = os.environ.copy()
+        env['PGPASSWORD'] = db_password
+        env['PATH'] = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+
+        pg_dump_cmd    = shutil.which('pg_dump',    path=env['PATH']) or '/usr/bin/pg_dump'
+        psql_cmd       = shutil.which('psql',       path=env['PATH']) or '/usr/bin/psql'
+        pg_restore_cmd = shutil.which('pg_restore', path=env['PATH']) or '/usr/bin/pg_restore'
+
+        # ── Step 1: Automatic pre-restore backup (safety net) ──────────────
+        # If the restore fails for any reason the old data is recoverable from
+        # this file.  It is deleted only after a successful restore.
+        now = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        pre_restore_backup_path = f"/tmp/pre_restore_{db_name}_{now}.dump"
+        backup_result = subprocess.run(
+            [pg_dump_cmd, '-Fc',
+             '-U', db_user, '-h', db_host, '-p', str(db_port),
+             '-f', pre_restore_backup_path,
+             db_name],
+            env=env, capture_output=True
+        )
+        if backup_result.returncode != 0:
+            raise Exception(
+                "Pre-restore safety backup failed — aborting to protect existing data.\n"
+                + backup_result.stderr.decode(errors='replace')
+            )
+        logger.info("Pre-restore backup saved: %s", pre_restore_backup_path)
+
+        # ── Step 2: Terminate connections, drop, recreate DB ───────────────
+        # psycopg2.sql.Identifier safely quotes identifiers — no f-string injection.
         conn = psycopg2.connect(
             dbname='postgres',
             user=db_user,
             password=db_password,
             host=db_host,
-            port=db_port
+            port=db_port,
         )
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
         cursor = conn.cursor()
-        
-        # Terminate existing connections
-        cursor.execute(f"""
-            SELECT pg_terminate_backend(pg_stat_activity.pid)
-            FROM pg_stat_activity
-            WHERE pg_stat_activity.datname = '{db_name}'
-            AND pid <> pg_backend_pid();
-        """)
-        
-        # Drop and recreate database
-        cursor.execute(f"DROP DATABASE IF EXISTS {db_name};")
-        cursor.execute(f"CREATE DATABASE {db_name} OWNER {db_user};")
-        
+
+        # Parameterized value for datname (string literal — use %s, not Identifier)
+        cursor.execute(
+            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+            "WHERE datname = %s AND pid <> pg_backend_pid();",
+            (db_name,)
+        )
+
+        # Identifiers (database / role names) must use sql.Identifier, not %s
+        cursor.execute(pgsql.SQL("DROP DATABASE IF EXISTS {}").format(pgsql.Identifier(db_name)))
+        cursor.execute(
+            pgsql.SQL("CREATE DATABASE {} OWNER {}").format(
+                pgsql.Identifier(db_name),
+                pgsql.Identifier(db_user),
+            )
+        )
         cursor.close()
         conn.close()
 
-        # Restore using pg_restore or psql
+        # ── Step 3: Restore ────────────────────────────────────────────────
         restore_target = decompressed_path or tmp_path
-        psql_cmd = shutil.which('psql', path=env['PATH']) or '/usr/bin/psql'
-        pg_restore_cmd = shutil.which('pg_restore', path=env['PATH']) or '/usr/bin/pg_restore'
-        
+
         if backup_file.name.endswith('.sql') or (is_gzip and backup_file.name.endswith('.sql.gz')):
-            # Pre-process SQL file to handle common issues
-            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.sql') as processed_sql:
-                sql_path = processed_sql.name
-                with open(restore_target, 'r', encoding='utf-8', errors='ignore') as f:
-                    content = f.read()
-                
-                # Remove problematic PostgreSQL version-specific settings
-                lines = content.split('\n')
-                processed_lines = []
-                seen_tables = set()
-                seen_sequences = set()
-                in_insert = False
-                insert_buffer = []
-                
-                # Tables that should NOT be restored (removed in migrations)
-                DEPRECATED_TABLES = ['author']  # Removed in migration 0015
-                
-                for i, line in enumerate(lines):
-                    line_stripped = line.strip()
-                    line_upper = line_stripped.upper()
-                    
-                    # Skip transaction_timeout settings
-                    if 'transaction_timeout' in line.lower():
-                        continue
-                    
-                    # Skip SET statements that might cause issues (except safe ones)
-                    if line_upper.startswith('SET ') and ('=' in line):
-                        if any(safe in line.lower() for safe in ['search_path', 'client_encoding', 'standard_conforming_strings']):
-                            processed_lines.append(line)
-                        continue
-                    
-                    # Skip deprecated tables that were removed in migrations
-                    # Check if this line references a deprecated table
-                    is_deprecated_table = False
-                    for deprecated in DEPRECATED_TABLES:
-                        if f'"{deprecated}"' in line or f"'{deprecated}'" in line or f'.{deprecated}' in line_upper or f' {deprecated} ' in line_upper:
-                            is_deprecated_table = True
-                            break
-                    
-                    if is_deprecated_table:
-                        # Skip CREATE TABLE, ALTER TABLE, INSERT INTO, and other statements for deprecated tables
-                        if any(cmd in line_upper for cmd in ['CREATE TABLE', 'ALTER TABLE', 'INSERT INTO', 'CREATE INDEX', 'CREATE CONSTRAINT', 'ADD CONSTRAINT']):
-                            continue
-                        # For DROP statements, allow them (they're safe)
-                        if 'DROP' in line_upper:
-                            processed_lines.append(line)
-                            continue
-                        # Skip everything else related to deprecated tables
-                        continue
-                    
-                    # Track and handle CREATE TABLE statements
-                    if line_upper.startswith('CREATE TABLE'):
-                        # Extract table name (handle both schema.table and table formats)
-                        table_part = line_upper.replace('CREATE TABLE', '').strip()
-                        # Remove IF NOT EXISTS if present
-                        table_part = table_part.replace('IF NOT EXISTS', '').strip()
-                        
-                        if '.' in table_part:
-                            schema, table = table_part.split('.', 1)
-                            table = table.split('(')[0].strip().strip('"')
-                            schema = schema.strip().strip('"')
-                            full_name = f'{schema}.{table}'
-                        else:
-                            table = table_part.split('(')[0].strip().strip('"')
-                            full_name = table
-                        
-                        # Only add DROP if we haven't seen this table before
-                        if full_name not in seen_tables:
-                            if '.' in table_part:
-                                processed_lines.append(f'DROP TABLE IF EXISTS {schema}.{table} CASCADE;')
-                            else:
-                                processed_lines.append(f'DROP TABLE IF EXISTS {table} CASCADE;')
-                            seen_tables.add(full_name)
-                    
-                    # Track and handle CREATE SEQUENCE statements
-                    elif line_upper.startswith('CREATE SEQUENCE'):
-                        seq_part = line_upper.replace('CREATE SEQUENCE', '').strip()
-                        seq_part = seq_part.replace('IF NOT EXISTS', '').strip()
-                        
-                        if '.' in seq_part:
-                            schema, seq = seq_part.split('.', 1)
-                            seq = seq.split()[0].strip().strip('"')
-                            schema = schema.strip().strip('"')
-                            full_name = f'{schema}.{seq}'
-                        else:
-                            seq = seq_part.split()[0].strip().strip('"')
-                            full_name = seq
-                        
-                        if full_name not in seen_sequences:
-                            if '.' in seq_part:
-                                processed_lines.append(f'DROP SEQUENCE IF EXISTS {schema}.{seq} CASCADE;')
-                            else:
-                                processed_lines.append(f'DROP SEQUENCE IF EXISTS {seq} CASCADE;')
-                            seen_sequences.add(full_name)
-                    
-                    # Handle multi-line INSERT statements
-                    elif line_upper.startswith('INSERT INTO') or in_insert:
-                        # Check if this INSERT is for a deprecated table
-                        insert_for_deprecated = False
-                        if line_upper.startswith('INSERT INTO'):
-                            for deprecated in DEPRECATED_TABLES:
-                                if f'"{deprecated}"' in line_upper or f"'{deprecated}'" in line_upper or f' {deprecated} ' in line_upper:
-                                    insert_for_deprecated = True
-                                    break
-                        
-                        if insert_for_deprecated:
-                            # Skip this INSERT statement completely
-                            in_insert = False
-                            insert_buffer = []
-                            continue
-                        
-                        if line_upper.startswith('INSERT INTO'):
-                            in_insert = True
-                            insert_buffer = [line]
-                        else:
-                            insert_buffer.append(line)
-                        
-                        # Check if INSERT statement is complete (ends with ;)
-                        if line_stripped.endswith(';'):
-                            insert_stmt = '\n'.join(insert_buffer)
-                            # Try to add ON CONFLICT DO NOTHING for duplicate handling
-                            # Note: This only works if table has primary key or unique constraint
-                            # If not, the error will be caught by ON_ERROR_STOP=off
-                            if 'ON CONFLICT' not in insert_stmt.upper() and 'COPY ' not in insert_stmt.upper():
-                                # Only add for VALUES-based INSERTs, not COPY or SELECT-based
-                                if 'VALUES' in insert_stmt.upper():
-                                    # Remove trailing semicolon, add ON CONFLICT, then semicolon
-                                    insert_stmt = insert_stmt.rstrip().rstrip(';') + ' ON CONFLICT DO NOTHING;'
-                            processed_lines.append(insert_stmt)
-                            in_insert = False
-                            insert_buffer = []
-                        # Don't append yet if still in INSERT
-                        continue
-                    
-                    # Skip ALTER SEQUENCE OWNED BY errors (sequences will be recreated)
-                    elif 'ALTER SEQUENCE' in line_upper and 'OWNED BY' in line_upper:
-                        # Wrap in DO block to catch errors
-                        processed_lines.append(f"DO $$ BEGIN {line} EXCEPTION WHEN OTHERS THEN NULL; END $$;")
-                        continue
-                    
-                    # Skip ALTER TABLE ... OWNED BY errors for identity columns
-                    elif 'ALTER TABLE' in line_upper and 'OWNED BY' in line_upper and 'identity' in line.lower():
-                        processed_lines.append(f"DO $$ BEGIN {line} EXCEPTION WHEN OTHERS THEN NULL; END $$;")
-                        continue
-                    
-                    # For other ALTER statements that might fail, wrap them
-                    elif line_upper.startswith('ALTER ') and ('OWNED BY' in line_upper or 'ADD GENERATED' in line_upper):
-                        processed_lines.append(f"DO $$ BEGIN {line} EXCEPTION WHEN OTHERS THEN NULL; END $$;")
-                        continue
-                    
-                    # Skip foreign key constraints that reference deprecated tables
-                    elif 'FOREIGN KEY' in line_upper or 'REFERENCES' in line_upper:
-                        # Check if this FK references a deprecated table
-                        fk_references_deprecated = False
-                        for deprecated in DEPRECATED_TABLES:
-                            if f'"{deprecated}"' in line_upper or f"'{deprecated}'" in line_upper or f'.{deprecated}' in line_upper:
-                                fk_references_deprecated = True
-                                break
-                        
-                        if fk_references_deprecated:
-                            # Skip foreign key constraints to deprecated tables
-                            continue
-                    
-                    else:
-                        processed_lines.append(line)
-                
-                processed_sql.write('\n'.join(processed_lines))
-            
-            # Use psql with ON_ERROR_STOP=off to continue on non-critical errors
             restore_cmd = [
-                psql_cmd, '-U', db_user, '-h', db_host, '-p', str(db_port), '-d', db_name,
-                '-v', 'ON_ERROR_STOP=off',  # Continue on errors
-                '-f', sql_path
+                psql_cmd, '-U', db_user, '-h', db_host, '-p', str(db_port),
+                '-d', db_name, '-f', restore_target,
             ]
         else:
-            # For custom format dumps, convert to SQL first to preprocess
-            # This allows us to handle transaction_timeout and other issues
-            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.sql') as tmp_sql:
-                sql_path = tmp_sql.name
-            
-            # Convert custom format dump to SQL
-            convert_cmd = [
-                pg_restore_cmd, '-O', '--no-privileges', '-f', sql_path, restore_target
-            ]
-            convert_result = subprocess.run(convert_cmd, env=env, capture_output=True, text=True)
-            
-            if convert_result.returncode != 0:
-                if os.path.exists(sql_path):
-                    os.unlink(sql_path)
-                raise Exception(
-                    f"Failed to convert dump file to SQL format:\n{convert_result.stderr}\n\n"
-                    f"Please ensure the backup file is a valid PostgreSQL custom format dump."
-                )
-            
-            # Now preprocess the SQL file (same logic as for .sql files)
-            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.sql') as processed_sql:
-                processed_sql_path = processed_sql.name
-                with open(sql_path, 'r', encoding='utf-8', errors='ignore') as f:
-                    content = f.read()
-                
-                # Remove problematic PostgreSQL version-specific settings
-                lines = content.split('\n')
-                processed_lines = []
-                seen_tables = set()
-                seen_sequences = set()
-                in_insert = False
-                insert_buffer = []
-                
-                # Tables that should NOT be restored (removed in migrations)
-                DEPRECATED_TABLES = ['author']  # Removed in migration 0015
-                
-                for i, line in enumerate(lines):
-                    line_stripped = line.strip()
-                    line_upper = line_stripped.upper()
-                    
-                    # Skip transaction_timeout settings
-                    if 'transaction_timeout' in line.lower():
-                        continue
-                    
-                    # Skip SET statements that might cause issues (except safe ones)
-                    if line_upper.startswith('SET ') and ('=' in line):
-                        if any(safe in line.lower() for safe in ['search_path', 'client_encoding', 'standard_conforming_strings']):
-                            processed_lines.append(line)
-                        continue
-                    
-                    # Skip deprecated tables that were removed in migrations
-                    # Check if this line references a deprecated table
-                    is_deprecated_table = False
-                    for deprecated in DEPRECATED_TABLES:
-                        if f'"{deprecated}"' in line or f"'{deprecated}'" in line or f'.{deprecated}' in line_upper or f' {deprecated} ' in line_upper:
-                            is_deprecated_table = True
-                            break
-                    
-                    if is_deprecated_table:
-                        # Skip CREATE TABLE, ALTER TABLE, INSERT INTO, and other statements for deprecated tables
-                        if any(cmd in line_upper for cmd in ['CREATE TABLE', 'ALTER TABLE', 'INSERT INTO', 'CREATE INDEX', 'CREATE CONSTRAINT', 'ADD CONSTRAINT']):
-                            continue
-                        # For DROP statements, allow them (they're safe)
-                        if 'DROP' in line_upper:
-                            processed_lines.append(line)
-                            continue
-                        # Skip everything else related to deprecated tables
-                        continue
-                    
-                    # Fix DROP CONSTRAINT to use CASCADE when needed
-                    # pg_restore generates ALTER TABLE ... DROP CONSTRAINT which fails if dependencies exist
-                    if 'ALTER TABLE' in line_upper and 'DROP CONSTRAINT' in line_upper and 'CASCADE' not in line_upper:
-                        # Add CASCADE to DROP CONSTRAINT statements
-                        line = line.rstrip().rstrip(';') + ' CASCADE;'
-                    
-                    # Track and handle CREATE TABLE statements
-                    if line_upper.startswith('CREATE TABLE'):
-                        # Extract table name (handle both schema.table and table formats)
-                        table_part = line_upper.replace('CREATE TABLE', '').strip()
-                        # Remove IF NOT EXISTS if present
-                        table_part = table_part.replace('IF NOT EXISTS', '').strip()
-                        
-                        if '.' in table_part:
-                            schema, table = table_part.split('.', 1)
-                            table = table.split('(')[0].strip().strip('"')
-                            schema = schema.strip().strip('"')
-                            full_name = f'{schema}.{table}'
-                        else:
-                            table = table_part.split('(')[0].strip().strip('"')
-                            full_name = table
-                        
-                        # Only add DROP if we haven't seen this table before
-                        if full_name not in seen_tables:
-                            if '.' in table_part:
-                                processed_lines.append(f'DROP TABLE IF EXISTS {schema}.{table} CASCADE;')
-                            else:
-                                processed_lines.append(f'DROP TABLE IF EXISTS {table} CASCADE;')
-                            seen_tables.add(full_name)
-                    
-                    # Track and handle CREATE SEQUENCE statements
-                    elif line_upper.startswith('CREATE SEQUENCE'):
-                        seq_part = line_upper.replace('CREATE SEQUENCE', '').strip()
-                        seq_part = seq_part.replace('IF NOT EXISTS', '').strip()
-                        
-                        if '.' in seq_part:
-                            schema, seq = seq_part.split('.', 1)
-                            seq = seq.split()[0].strip().strip('"')
-                            schema = schema.strip().strip('"')
-                            full_name = f'{schema}.{seq}'
-                        else:
-                            seq = seq_part.split()[0].strip().strip('"')
-                            full_name = seq
-                        
-                        if full_name not in seen_sequences:
-                            if '.' in seq_part:
-                                processed_lines.append(f'DROP SEQUENCE IF EXISTS {schema}.{seq} CASCADE;')
-                            else:
-                                processed_lines.append(f'DROP SEQUENCE IF EXISTS {seq} CASCADE;')
-                            seen_sequences.add(full_name)
-                    
-                    # Handle multi-line INSERT statements
-                    elif line_upper.startswith('INSERT INTO') or in_insert:
-                        # Check if this INSERT is for a deprecated table
-                        insert_for_deprecated = False
-                        if line_upper.startswith('INSERT INTO'):
-                            for deprecated in DEPRECATED_TABLES:
-                                if f'"{deprecated}"' in line_upper or f"'{deprecated}'" in line_upper or f' {deprecated} ' in line_upper:
-                                    insert_for_deprecated = True
-                                    break
-                        
-                        if insert_for_deprecated:
-                            # Skip this INSERT statement completely
-                            in_insert = False
-                            insert_buffer = []
-                            continue
-                        
-                        if line_upper.startswith('INSERT INTO'):
-                            in_insert = True
-                            insert_buffer = [line]
-                        else:
-                            insert_buffer.append(line)
-                        
-                        # Check if INSERT statement is complete (ends with ;)
-                        if line_stripped.endswith(';'):
-                            insert_stmt = '\n'.join(insert_buffer)
-                            # Try to add ON CONFLICT DO NOTHING for duplicate handling
-                            # Note: This only works if table has primary key or unique constraint
-                            # If not, the error will be caught by ON_ERROR_STOP=off
-                            if 'ON CONFLICT' not in insert_stmt.upper() and 'COPY ' not in insert_stmt.upper():
-                                # Only add for VALUES-based INSERTs, not COPY or SELECT-based
-                                if 'VALUES' in insert_stmt.upper():
-                                    # Remove trailing semicolon, add ON CONFLICT, then semicolon
-                                    insert_stmt = insert_stmt.rstrip().rstrip(';') + ' ON CONFLICT DO NOTHING;'
-                            processed_lines.append(insert_stmt)
-                            in_insert = False
-                            insert_buffer = []
-                        # Don't append yet if still in INSERT
-                        continue
-                    
-                    # Skip ALTER SEQUENCE OWNED BY errors (sequences will be recreated)
-                    elif 'ALTER SEQUENCE' in line_upper and 'OWNED BY' in line_upper:
-                        # Wrap in DO block to catch errors
-                        processed_lines.append(f"DO $$ BEGIN {line} EXCEPTION WHEN OTHERS THEN NULL; END $$;")
-                        continue
-                    
-                    # Skip ALTER TABLE ... OWNED BY errors for identity columns
-                    elif 'ALTER TABLE' in line_upper and 'OWNED BY' in line_upper and 'identity' in line.lower():
-                        processed_lines.append(f"DO $$ BEGIN {line} EXCEPTION WHEN OTHERS THEN NULL; END $$;")
-                        continue
-                    
-                    # For other ALTER statements that might fail, wrap them
-                    elif line_upper.startswith('ALTER ') and ('OWNED BY' in line_upper or 'ADD GENERATED' in line_upper):
-                        processed_lines.append(f"DO $$ BEGIN {line} EXCEPTION WHEN OTHERS THEN NULL; END $$;")
-                        continue
-                    
-                    # Skip foreign key constraints that reference deprecated tables
-                    elif 'FOREIGN KEY' in line_upper or 'REFERENCES' in line_upper:
-                        # Check if this FK references a deprecated table
-                        fk_references_deprecated = False
-                        for deprecated in DEPRECATED_TABLES:
-                            if f'"{deprecated}"' in line_upper or f"'{deprecated}'" in line_upper or f'.{deprecated}' in line_upper:
-                                fk_references_deprecated = True
-                                break
-                        
-                        if fk_references_deprecated:
-                            # Skip foreign key constraints to deprecated tables
-                            continue
-                    
-                    else:
-                        processed_lines.append(line)
-                
-                processed_sql.write('\n'.join(processed_lines))
-            
-            # Use the processed SQL file for restore
-            # Keep sql_path for the converted file, processed_sql_path for the processed file
             restore_cmd = [
-                psql_cmd, '-U', db_user, '-h', db_host, '-p', str(db_port), '-d', db_name,
-                '-v', 'ON_ERROR_STOP=off',  # Continue on errors
-                '-f', processed_sql_path
+                pg_restore_cmd, '-O', '--no-privileges',
+                '-U', db_user, '-h', db_host, '-p', str(db_port),
+                '-d', db_name, restore_target,
             ]
 
         restore = subprocess.run(restore_cmd, env=env, capture_output=True, text=True)
-        
-        # Clean up temporary SQL files
-        temp_files_to_clean = []
-        if 'sql_path' in locals() and os.path.exists(sql_path):
-            temp_files_to_clean.append(sql_path)
-        if 'processed_sql_path' in locals() and os.path.exists(processed_sql_path):
-            temp_files_to_clean.append(processed_sql_path)
-        for temp_file in temp_files_to_clean:
-            try:
-                os.unlink(temp_file)
-            except Exception:
-                pass
-        
-        if restore.returncode != 0:
-            # Check for unsupported version error - cannot be automatically fixed
-            if 'unsupported version' in restore.stderr.lower():
-                raise Exception(
-                    f"The backup file format is not compatible with this PostgreSQL version.\n\n"
-                    f"Error: {restore.stderr}\n\n"
-                    f"Please re-export the backup from the source database using:\n"
-                    f"  pg_dump -U username -h host database_name > backup.sql\n\n"
-                    f"Then upload the .sql file instead."
-                )
-            
-            # For SQL files, many errors might be non-critical (duplicates, etc.)
-            # Since we're using ON_ERROR_STOP=off, psql continues on errors
-            if backup_file.name.endswith('.sql') or (is_gzip and backup_file.name.endswith('.sql.gz')):
-                # Filter out common non-critical errors
-                error_lines = [e for e in restore.stderr.split('\n') if e.strip()]
-                # Common non-critical errors that we can ignore
-                ignorable_patterns = [
-                    'already exists',
-                    'does not exist',
-                    'duplicate key value',
-                    'violates unique constraint',
-                    'violates foreign key constraint',  # These are data issues, not schema issues
-                    'null value in column',  # Data integrity issues
-                ]
-                
-                critical_errors = [
-                    e for e in error_lines 
-                    if not any(pattern in e.lower() for pattern in ignorable_patterns)
-                    and any(keyword in e.lower() for keyword in [
-                        'syntax error', 'invalid command', 'cannot execute'
-                    ])
-                ]
-                
-                # If we have critical syntax/command errors, fail
-                if critical_errors:
-                    raise Exception(
-                        f"Restore completed with critical errors.\n\n"
-                        f"Critical errors:\n{chr(10).join(critical_errors[:20])}\n\n"
-                        f"All errors:\n{restore.stderr[:3000]}\n\n"
-                        f"Note: Some non-critical errors (duplicates, foreign keys) were ignored.\n"
-                        f"Please review the database and verify data integrity."
-                    )
-                # Otherwise, warn about non-critical errors but consider restore successful
-                if error_lines:
-                    # Log warnings but don't fail
-                    import logging
-                    logger = logging.getLogger(__name__)
-                    logger.warning(f"Restore completed with non-critical errors: {len(error_lines)} error(s)")
-            else:
-                # For custom format dumps, errors are usually more critical
-                raise Exception(
-                    f"Restore failed:\n{restore.stderr[:3000]}\n\n"
-                    f"Please check the backup file format and try again."
-                )
 
-        # Run Django migrations to ensure system tables exist
-        # This is important because backups may not include Django's system tables
-        # or they may be out of sync with the current migration state
-        # Run migrations for Django system apps individually to avoid conflicts with app tables
-        try:
-            from django.core.management import call_command
-            from django.core.management.base import CommandError
-            # Run migrations for Django system apps first (these create essential system tables)
-            # Run them individually to avoid issues if app tables already exist from backup
-            system_apps = ['contenttypes', 'auth', 'admin', 'sessions']
-            for app in system_apps:
-                try:
-                    call_command('migrate', app, verbosity=0, interactive=False)
-                except Exception as app_error:
-                    # Log but continue - some apps might already have migrations applied
-                    import logging
-                    logger = logging.getLogger(__name__)
-                    logger.debug(f"Migration for {app} skipped or already applied: {app_error}")
-            
-            # Try to run migrations for custom apps (users, frontend) with --fake-initial
-            # This will fake migrations if tables already exist from backup
-            try:
-                call_command('migrate', 'users', verbosity=0, interactive=False, fake_initial=True)
-            except Exception:
-                pass  # Users tables might already exist, that's okay
-            
-            try:
-                call_command('migrate', 'frontend', verbosity=0, interactive=False, fake_initial=True)
-            except Exception:
-                pass  # Frontend tables might already exist, that's okay
-                
-        except Exception as migrate_error:
-            # Log migration error but don't fail the restore
-            # The restore was successful, migrations can be run manually if needed
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning(f"Migrations failed after restore: {migrate_error}")
-        
-        # Cleanup
-        os.unlink(tmp_path)
-        if decompressed_path and os.path.exists(decompressed_path):
-            os.unlink(decompressed_path)
+        if restore.returncode != 0:
+            if 'unsupported version' in restore.stderr:
+                raise Exception(
+                    "The backup file format is not compatible with this PostgreSQL version.\n\n"
+                    f"Error: {restore.stderr}\n\n"
+                    "Please re-export the backup from the source database using:\n"
+                    "  pg_dump -U username -h host database_name > backup.sql\n\n"
+                    "Then upload the .sql file instead."
+                )
+            if 'transaction_timeout' in restore.stderr:
+                # Convert to plain SQL, strip the offending SET line, re-apply via psql
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.sql') as tmp_sql:
+                    sql_path = tmp_sql.name
+                conv = subprocess.run(
+                    [pg_restore_cmd, '-O', '--no-privileges',
+                     '-U', db_user, '-h', db_host, '-p', str(db_port),
+                     '-f', sql_path, restore_target],
+                    env=env, capture_output=True, text=True
+                )
+                if conv.returncode != 0:
+                    raise Exception(restore.stderr + "\n" + conv.stderr)
+                with open(sql_path, 'r') as f:
+                    lines = f.readlines()
+                with open(sql_path, 'w') as f:
+                    for line in lines:
+                        if 'transaction_timeout' not in line:
+                            f.write(line)
+                restore2 = subprocess.run(
+                    [psql_cmd, '-U', db_user, '-h', db_host, '-p', str(db_port),
+                     '-d', db_name, '-f', sql_path],
+                    env=env, capture_output=True, text=True
+                )
+                if restore2.returncode != 0:
+                    raise Exception(restore.stderr + "\n" + restore2.stderr)
+            else:
+                raise Exception(restore.stderr)
+
+        if restore.stderr:
+            logger.warning("pg_restore non-fatal warnings (%s): %s", backup_file.name, restore.stderr)
+
+        # Restore succeeded — pre-restore backup is no longer needed
+        if pre_restore_backup_path and os.path.exists(pre_restore_backup_path):
+            os.unlink(pre_restore_backup_path)
+            pre_restore_backup_path = None
+
         return render(request, 'frontend/database_import_result.html', {
             'status': 'success',
-            'file_name': backup_file.name
+            'file_name': backup_file.name,
         })
+
     except Exception as e:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
-        if decompressed_path and os.path.exists(decompressed_path):
-            os.unlink(decompressed_path)
-        # Also remove any temp SQL files if left
-        temp_files_to_clean = []
-        if 'sql_path' in locals() and os.path.exists(sql_path):
-            temp_files_to_clean.append(sql_path)
-        if 'processed_sql_path' in locals() and os.path.exists(processed_sql_path):
-            temp_files_to_clean.append(processed_sql_path)
-        for temp_file in temp_files_to_clean:
-            try:
-                os.unlink(temp_file)
-            except Exception:
-                pass
+        logger.exception("Database restore failed for file %s", backup_file.name if backup_file else '?')
         return render(request, 'frontend/database_import_result.html', {
             'status': 'error',
             'error_message': str(e),
-            'file_name': backup_file.name if backup_file else ''
+            'file_name': backup_file.name if backup_file else '',
+            # Tell the operator where the pre-restore backup is (if it was created)
+            'pre_restore_backup': pre_restore_backup_path,
         }, status=500)
+
+    finally:
+        # Always clean up upload/decompress/sql temp files.
+        # pre_restore_backup_path is intentionally left on disk on error (recovery use).
+        for path in (tmp_path, decompressed_path, sql_path):
+            if path and os.path.exists(path):
+                try:
+                    os.unlink(path)
+                except Exception:
+                    pass
 
 
 # API endpoints for modal selectors
@@ -3256,19 +2824,20 @@ def api_sites_list(request):
 def api_evidence_list(request):
     """API endpoint to get list of all archaeological evidence"""
     try:
-        # Fetch only needed fields for better performance
-        evidence_query = ArchaeologicalEvidence.objects.values(
-            'id', 'evidence_name', 'description'
-        ).order_by('evidence_name')
+        # Fetch ALL archaeological evidence from database using model instances
+        evidence_query = ArchaeologicalEvidence.objects.all().order_by('evidence_name')
+        
+        print(f"[API] Total evidence in database: {evidence_query.count()}")
         
         evidence_list = []
         for evidence in evidence_query:
             evidence_display = {
-                'id': evidence['id'],
-                'evidence_name': evidence['evidence_name'] if evidence['evidence_name'] else f"Evidence #{evidence['id']}",
-                'description': evidence['description'] if evidence['description'] else ''
+                'id': evidence.id,
+                'evidence_name': evidence.evidence_name if evidence.evidence_name else f"Evidence #{evidence.id}",
+                'description': evidence.description if hasattr(evidence, 'description') else ''
             }
             evidence_list.append(evidence_display)
+            print(f"[API] Added evidence: {evidence_display}")
         
         print(f"[API] Total evidence to return: {len(evidence_list)}")
         
@@ -3418,6 +2987,306 @@ def api_research_evidence_create(request):
         print(f"[API ERROR] Unexpected error: {str(e)}")
         traceback.print_exc()
         return JsonResponse({'error': str(e)}, status=500)
+
+# ─────────────────────────────────────────────────────────────────
+# Admin: User Management
+# ─────────────────────────────────────────────────────────────────
+
+class AdminUserListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+    model = User
+    template_name = 'frontend/admin_user_list.html'
+    context_object_name = 'users'
+    paginate_by = 25
+
+    def test_func(self):
+        return self.request.user.is_staff
+
+    def get_queryset(self):
+        qs = (
+            User.objects
+            .select_related('profile')
+            .prefetch_related('profile__user_roles')
+            .order_by('-date_joined')
+        )
+        q = self.request.GET.get('q', '').strip()
+        status = self.request.GET.get('status', '')
+        role = self.request.GET.get('role', '')
+        if q:
+            qs = qs.filter(
+                Q(username__icontains=q) |
+                Q(email__icontains=q) |
+                Q(first_name__icontains=q) |
+                Q(last_name__icontains=q)
+            )
+        if status == 'active':
+            qs = qs.filter(is_active=True)
+        elif status == 'inactive':
+            qs = qs.filter(is_active=False)
+        if role:
+            qs = qs.filter(profile__user_roles__role=role).distinct()
+        return qs
+
+    def get_context_data(self, **kwargs):
+        from users.models import UserRole
+        context = super().get_context_data(**kwargs)
+        context['total_users'] = User.objects.count()
+        context['active_users'] = User.objects.filter(is_active=True).count()
+        context['inactive_users'] = User.objects.filter(is_active=False).count()
+        context['staff_users'] = User.objects.filter(is_staff=True).count()
+        context['all_roles'] = UserRole.objects.filter(is_active=True)
+        context['q'] = self.request.GET.get('q', '')
+        context['status_filter'] = self.request.GET.get('status', '')
+        context['role_filter'] = self.request.GET.get('role', '')
+        return context
+
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def admin_user_create(request):
+    from users.models import Profile, UserRole
+    all_roles = UserRole.objects.filter(is_active=True)
+    if request.method == 'POST':
+        username = request.POST.get('username', '').strip()
+        email = request.POST.get('email', '').strip()
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        password = request.POST.get('password', '').strip()
+        is_active = request.POST.get('is_active') == 'on'
+        is_staff = request.POST.get('is_staff') == 'on'
+        affiliation = request.POST.get('affiliation', '').strip()
+        orcid = request.POST.get('orcid', '').strip() or None
+        qualification = request.POST.get('qualification', '').strip()
+        role_ids = request.POST.getlist('roles')
+
+        errors = []
+        if not username:
+            errors.append('Username is required.')
+        elif User.objects.filter(username=username).exists():
+            errors.append('This username is already taken.')
+        if email and User.objects.filter(email=email).exists():
+            errors.append('This email is already registered.')
+        if not password:
+            errors.append('Password is required.')
+        elif len(password) < 8:
+            errors.append('Password must be at least 8 characters.')
+
+        if errors:
+            for e in errors:
+                messages.error(request, e)
+        else:
+            user = User.objects.create_user(
+                username=username, email=email,
+                first_name=first_name, last_name=last_name,
+                password=password,
+                is_active=is_active,
+                is_staff=is_staff if request.user.is_superuser else False,
+            )
+            profile, _ = Profile.objects.get_or_create(user=user)
+            profile.affiliation = affiliation or None
+            profile.orcid = orcid
+            profile.qualification = qualification or None
+            if role_ids:
+                profile.user_roles.set(UserRole.objects.filter(pk__in=role_ids))
+            profile.save()
+            messages.success(request, f'User "{username}" created successfully.')
+            return redirect('admin_user_list')
+
+    return render(request, 'frontend/admin_user_edit.html', {
+        'all_roles': all_roles,
+        'form_action': 'create',
+        'page_title': 'Create New User',
+    })
+
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def admin_user_edit(request, pk):
+    from users.models import Profile, UserRole
+    target_user = get_object_or_404(User, pk=pk)
+    profile, _ = Profile.objects.get_or_create(user=target_user)
+    all_roles = UserRole.objects.filter(is_active=True)
+
+    if request.method == 'POST':
+        if target_user.is_superuser and not request.user.is_superuser:
+            messages.error(request, 'Only superusers can edit other superusers.')
+            return redirect('admin_user_list')
+
+        username = request.POST.get('username', '').strip()
+        email = request.POST.get('email', '').strip()
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        new_password = request.POST.get('password', '').strip()
+        is_active = request.POST.get('is_active') == 'on'
+        is_staff = request.POST.get('is_staff') == 'on'
+        affiliation = request.POST.get('affiliation', '').strip()
+        orcid = request.POST.get('orcid', '').strip() or None
+        qualification = request.POST.get('qualification', '').strip()
+        role_ids = request.POST.getlist('roles')
+
+        errors = []
+        if not username:
+            errors.append('Username is required.')
+        elif User.objects.filter(username=username).exclude(pk=pk).exists():
+            errors.append('This username is already taken.')
+        if email and User.objects.filter(email=email).exclude(pk=pk).exists():
+            errors.append('This email is already registered to another account.')
+        if new_password and len(new_password) < 8:
+            errors.append('Password must be at least 8 characters.')
+
+        if errors:
+            for e in errors:
+                messages.error(request, e)
+        else:
+            target_user.username = username
+            target_user.email = email
+            target_user.first_name = first_name
+            target_user.last_name = last_name
+            target_user.is_active = is_active
+            if request.user.is_superuser:
+                target_user.is_staff = is_staff
+            if new_password:
+                target_user.set_password(new_password)
+            target_user.save()
+
+            profile.affiliation = affiliation or None
+            profile.orcid = orcid
+            profile.qualification = qualification or None
+            profile.user_roles.set(UserRole.objects.filter(pk__in=role_ids))
+            profile.save()
+            messages.success(request, f'User "{username}" updated successfully.')
+            return redirect('admin_user_list')
+
+    return render(request, 'frontend/admin_user_edit.html', {
+        'target_user': target_user,
+        'profile': profile,
+        'all_roles': all_roles,
+        'user_role_ids': list(profile.user_roles.values_list('pk', flat=True)),
+        'form_action': 'edit',
+        'page_title': f'Edit User: {target_user.username}',
+    })
+
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+@require_POST
+def admin_user_toggle_active(request, pk):
+    target_user = get_object_or_404(User, pk=pk)
+    if target_user == request.user:
+        messages.error(request, 'You cannot deactivate your own account.')
+        return redirect('admin_user_list')
+    if target_user.is_superuser and not request.user.is_superuser:
+        messages.error(request, 'Only superusers can deactivate other superusers.')
+        return redirect('admin_user_list')
+    target_user.is_active = not target_user.is_active
+    target_user.save(update_fields=['is_active'])
+    status = 'activated' if target_user.is_active else 'deactivated'
+    messages.success(request, f'User "{target_user.username}" {status}.')
+    return redirect('admin_user_list')
+
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+@require_POST
+def admin_user_delete(request, pk):
+    target_user = get_object_or_404(User, pk=pk)
+    if target_user == request.user:
+        messages.error(request, 'You cannot delete your own account.')
+        return redirect('admin_user_list')
+    if target_user.is_superuser and not request.user.is_superuser:
+        messages.error(request, 'Only superusers can delete other superusers.')
+        return redirect('admin_user_list')
+    username = target_user.username
+    target_user.delete()
+    messages.success(request, f'User "{username}" deleted.')
+    return redirect('admin_user_list')
+
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def admin_site_settings(request):
+    settings_obj = SiteSettings.load()
+    if request.method == 'POST':
+        # Text / colour fields
+        settings_obj.site_name       = request.POST.get('site_name', '').strip() or 'SHAReLAND'
+        settings_obj.tagline         = request.POST.get('tagline', '').strip()
+        settings_obj.navbar_primary  = request.POST.get('navbar_primary', '#2c3e50')
+        settings_obj.navbar_secondary= request.POST.get('navbar_secondary', '#34495e')
+        settings_obj.navbar_accent   = request.POST.get('navbar_accent', '#3498db')
+        settings_obj.navbar_text     = request.POST.get('navbar_text', '#ecf0f1')
+        settings_obj.page_bg         = request.POST.get('page_bg', '#f5f6fa')
+        settings_obj.card_accent     = request.POST.get('card_accent', '#3498db')
+        settings_obj.footer_text     = request.POST.get('footer_text', '').strip()
+
+        # Logo upload
+        if 'logo' in request.FILES:
+            settings_obj.logo = request.FILES['logo']
+        elif request.POST.get('logo_clear') == 'on':
+            settings_obj.logo = None
+
+        # Favicon upload
+        if 'favicon' in request.FILES:
+            settings_obj.favicon = request.FILES['favicon']
+        elif request.POST.get('favicon_clear') == 'on':
+            settings_obj.favicon = None
+
+        # ── Home page: About ────────────────────────────────────
+        settings_obj.show_about  = request.POST.get('show_about') == 'on'
+        settings_obj.about_en    = request.POST.get('about_en', '').strip()
+        settings_obj.about_it    = request.POST.get('about_it', '').strip()
+
+        # ── Home page: Key Information ──────────────────────────
+        settings_obj.show_keyinfo       = request.POST.get('show_keyinfo') == 'on'
+        settings_obj.project_date       = request.POST.get('project_date', '').strip()
+        settings_obj.institution_name   = request.POST.get('institution_name', '').strip()
+        settings_obj.institution_dept   = request.POST.get('institution_dept', '').strip()
+        settings_obj.lab_name           = request.POST.get('lab_name', '').strip()
+        settings_obj.lab_instagram      = request.POST.get('lab_instagram', '').strip()
+        settings_obj.phd_title          = request.POST.get('phd_title', '').strip()
+        settings_obj.phd_researcher     = request.POST.get('phd_researcher', '').strip()
+        settings_obj.phd_years          = request.POST.get('phd_years', '').strip()
+
+        # ── Home page: Team ─────────────────────────────────────
+        settings_obj.show_team          = request.POST.get('show_team') == 'on'
+        settings_obj.team_coordinators  = request.POST.get('team_coordinators', '').strip()
+        settings_obj.team_technical     = request.POST.get('team_technical', '').strip()
+
+        # ── Home page: Logos ────────────────────────────────────
+        settings_obj.show_logos         = request.POST.get('show_logos') == 'on'
+        settings_obj.logo_partner_1_name = request.POST.get('logo_partner_1_name', '').strip()
+        settings_obj.logo_partner_2_name = request.POST.get('logo_partner_2_name', '').strip()
+        settings_obj.logo_partner_3_name = request.POST.get('logo_partner_3_name', '').strip()
+        for slot in ('logo_partner_1', 'logo_partner_2', 'logo_partner_3'):
+            if slot in request.FILES:
+                setattr(settings_obj, slot, request.FILES[slot])
+            elif request.POST.get(f'{slot}_clear') == 'on':
+                setattr(settings_obj, slot, None)
+
+        # ── Paesaggi Condivisi poster ───────────────────────────
+        if 'poster_lucretili' in request.FILES:
+            settings_obj.poster_lucretili = request.FILES['poster_lucretili']
+        elif request.POST.get('poster_lucretili_clear') == 'on':
+            settings_obj.poster_lucretili = None
+
+        settings_obj.save()
+        messages.success(request, 'Site settings saved successfully.')
+        return redirect('admin_site_settings')
+
+    return render(request, 'frontend/admin_site_settings.html', {'settings': settings_obj})
+
+
+@login_required
+def platform_manual(request):
+    """User manual – authenticated users only."""
+    return render(request, 'frontend/platform_manual.html')
+
+
+def paesaggi_condivisi(request):
+    """Paesaggi Archeologici Condivisi – dedicated page."""
+    site_cfg = SiteSettings.load()
+    return render(request, 'frontend/paesaggi_condivisi.html', {
+        'poster': site_cfg.poster_lucretili if site_cfg else None,
+    })
+
 
 def api_debug_data(request):
     """Debug endpoint to check data availability"""

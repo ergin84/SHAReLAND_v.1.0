@@ -8,19 +8,14 @@
 <section class="hero-section">
   <div class="hero-overlay"></div>
   <div class="hero-content">
-    <div class="hero-badge">
-      <!-- Custom SVG: Share arrow + Landmark column -->
-      <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="28" cy="28" r="27" fill="#fff" fill-opacity="0.18" stroke="#2c3e50" stroke-width="2"/>
-        <!-- Landmark base -->
-        <rect x="16" y="38" width="24" height="6" rx="2" fill="#34495e"/>
-        <!-- Landmark column -->
-        <rect x="25" y="22" width="6" height="16" rx="2" fill="#3498db"/>
-        <!-- Landmark roof -->
-        <rect x="18" y="18" width="20" height="4" rx="2" fill="#2c3e50"/>
-        <!-- Share arrow -->
-        <path d="M36 14L44 14M44 14L44 22M44 14L28 30" stroke="#27ae60" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
+    <div class="hero-badge" style="background:transparent; border:none; backdrop-filter:none; width:auto; height:auto; border-radius:0;">
+      {% if site_settings and site_settings.logo %}
+        <img src="{{ site_settings.logo.url }}" alt="SHAReLAND Logo"
+             style="height:100px; width:auto; max-width:140px; object-fit:contain; filter:drop-shadow(0 4px 20px rgba(0,0,0,.5));">
+      {% else %}
+        <img src="{% static 'frontend/logo.svg' %}" alt="SHAReLAND Logo"
+             style="height:100px; width:auto; max-width:140px; object-fit:contain; filter:drop-shadow(0 4px 20px rgba(0,0,0,.5));">
+      {% endif %}
     </div>
     <h1 class="hero-title">SHAReLAND</h1>
     <div class="hero-tagline">
@@ -59,55 +54,238 @@
   </div>
 </section>
 
-<!-- Statistics Section -->
-<section class="stats-section">
-  <div class="stats-container">
-    <div class="stats-header">
-      <h2>Platform at a Glance</h2>
-      <p>Real-time statistics from our growing research community</p>
+<!-- ── Paesaggi Condivisi call-to-action ──────────────────── -->
+<section style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #1e3a5f 100%); padding: 3rem 1rem;">
+  <div style="max-width:900px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1.5rem;">
+    <div style="color:#fff;">
+      <p style="font-size:.75rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:rgba(255,255,255,.6); margin:0 0 .4rem;">PhD Research</p>
+      <h2 style="font-size:1.6rem; font-weight:800; margin:0 0 .5rem; line-height:1.2; color:#fff !important;">Paesaggi Archeologici Condivisi</h2>
+      <p style="color:rgba(255,255,255,.75); font-size:.95rem; margin:0; max-width:480px;">
+        Attività di ricerca, esplorazione partecipata e virtual tour dei paesaggi storici.
+      </p>
     </div>
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-icon stat-icon-research">
-          <i class="fas fa-flask"></i>
-        </div>
-        <div class="stat-content">
-          <div class="stat-number">{{ total_research|default:0 }}</div>
-          <div class="stat-label">Research Projects</div>
+    <a href="{% url 'paesaggi_condivisi' %}"
+       style="display:inline-flex; align-items:center; gap:.5rem; background:#fff; color:#312e81;
+              border-radius:10px; padding:.75rem 1.6rem; font-weight:700; font-size:.95rem;
+              text-decoration:none; white-space:nowrap; transition:opacity .15s;"
+       onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">
+      <i class="fas fa-map-marked-alt"></i> Scopri il progetto
+    </a>
+  </div>
+</section>
+
+<style>
+/* ── Shared section layout ─────────────────────────────────── */
+.home-section { padding: 5rem 1rem; }
+.home-section-inner { max-width: 1100px; margin: 0 auto; }
+.section-eyebrow { font-size: .78rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #3498db; margin-bottom: .5rem; }
+.section-title { font-size: 2rem; font-weight: 800; color: #1e293b; margin: 0 0 .5rem; line-height: 1.2; }
+.section-lead { color: #64748b; font-size: 1.05rem; margin-bottom: 2.5rem; }
+
+/* ── About section ─────────────────────────────────────────── */
+.about-section { background: #fff; }
+.about-lang-tabs { display: flex; gap: .5rem; margin-bottom: 2rem; }
+.lang-tab { border: 2px solid #e2e8f0; background: #f8fafc; color: #475569; border-radius: 8px; padding: .45rem 1.1rem; font-size: .88rem; font-weight: 600; cursor: pointer; transition: all .15s; display: flex; align-items: center; gap: .4rem; }
+.lang-tab:hover { border-color: #3498db; color: #3498db; }
+.lang-tab.active { background: #3498db; border-color: #3498db; color: #fff; }
+.about-text { display: none; }
+.about-text.active { display: block; }
+.about-text p { color: #374151; line-height: 1.85; font-size: 1rem; margin-bottom: 1rem; }
+.about-text p:last-child { margin-bottom: 0; }
+
+/* ── Key info section ──────────────────────────────────────── */
+.keyinfo-section { background: #f8fafc; }
+.keyinfo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.2rem; }
+@media (max-width: 768px) { .keyinfo-grid { grid-template-columns: 1fr; } }
+.keyinfo-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.4rem 1.6rem; display: flex; gap: 1rem; align-items: flex-start; transition: box-shadow .2s; }
+.keyinfo-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+.keyinfo-card-full { grid-column: 1 / -1; }
+.keyinfo-icon { width: 42px; height: 42px; border-radius: 10px; background: #eef2ff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.keyinfo-icon i { color: #6366f1; font-size: 1.1rem; }
+.keyinfo-body { flex: 1; min-width: 0; }
+.keyinfo-label { font-size: .73rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .08em; margin-bottom: .25rem; }
+.keyinfo-value { font-size: .92rem; font-weight: 600; color: #1e293b; line-height: 1.4; word-break: break-word; }
+.keyinfo-value small { display: block; font-weight: 400; color: #64748b; font-size: .82rem; margin-top: .15rem; }
+
+/* ── Team section ──────────────────────────────────────────── */
+.team-section { background: #fff; }
+.team-groups { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+@media (max-width: 640px) { .team-groups { grid-template-columns: 1fr; } }
+.team-group-title { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #94a3b8; border-bottom: 2px solid #f1f5f9; padding-bottom: .5rem; margin-bottom: 1.2rem; }
+.team-member { display: flex; align-items: center; gap: .9rem; padding: .75rem 0; border-bottom: 1px solid #f8fafc; }
+.team-member:last-child { border-bottom: none; }
+.team-avatar { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1rem; color: #fff; flex-shrink: 0; }
+.team-avatar.coordinator { background: linear-gradient(135deg, #3498db, #2c3e50); }
+.team-avatar.tech        { background: linear-gradient(135deg, #27ae60, #1a7a46); }
+.team-name { font-weight: 600; color: #1e293b; font-size: .95rem; }
+.team-role { font-size: .78rem; color: #64748b; margin-top: .1rem; }
+
+/* ── Logos section ─────────────────────────────────────────── */
+.logos-section { background: #f8fafc; }
+.logos-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 3rem; }
+.logo-item { display: flex; flex-direction: column; align-items: center; gap: .6rem; }
+.logo-item img { height: 70px; max-width: 200px; object-fit: contain; filter: grayscale(20%); opacity: .85; transition: opacity .2s; }
+.logo-item img:hover { opacity: 1; filter: none; }
+.logo-item span { font-size: .75rem; color: #94a3b8; font-weight: 500; text-align: center; }
+
+/* ── PhD highlight ─────────────────────────────────────────── */
+.phd-badge { background: linear-gradient(135deg, #eef2ff 0%, #f0fdf4 100%); border: 1px solid #c7d2fe; border-radius: 10px; padding: 1rem 1.3rem; margin-top: .5rem; display: flex; gap: .75rem; align-items: flex-start; }
+.phd-badge i { color: #6366f1; margin-top: 2px; flex-shrink: 0; }
+.phd-badge .phd-title { font-weight: 700; color: #1e293b; font-size: .9rem; }
+.phd-badge .phd-sub   { font-size: .82rem; color: #64748b; margin-top: .15rem; }
+
+/* ── Instagram link ────────────────────────────────────────── */
+.ig-link { display: inline-flex; align-items: center; gap: .3rem; color: #e1306c; font-size: .82rem; font-weight: 600; text-decoration: none; }
+.ig-link:hover { text-decoration: underline; }
+</style>
+
+<!-- ── About the Project ──────────────────────────────────── -->
+{% if not site_settings or site_settings.show_about %}
+<section class="home-section about-section" id="about">
+  <div class="home-section-inner">
+    <p class="section-eyebrow"><i class="fas fa-landmark"></i> About the Project</p>
+    <h2 class="section-title">Il Progetto SHAReLAND</h2>
+    <p class="section-lead">An open, participatory digital infrastructure dedicated to archaeological landscapes.</p>
+
+    <div class="about-lang-tabs">
+      <button class="lang-tab active" onclick="showLang('en', this)">🇬🇧 English</button>
+      <button class="lang-tab"        onclick="showLang('it', this)">🇮🇹 Italiano</button>
+    </div>
+
+    <div class="about-text active" id="about-en">
+      {% if site_settings and site_settings.about_en %}
+        {{ site_settings.about_en|safe }}
+      {% else %}
+        <p>The <strong>SHAReLAND</strong> project, carried out by Roma Tre University within the Landscape Archaeology teaching program, has three main goals: sharing and reusing data; reconstructing past landscapes; and promoting practical labs and training activities to build a community of practice. The platform is a participatory digital infrastructure dedicated to archaeological landscapes.</p>
+        <p>Students are at the heart of the project. Through their engagement with SHAReLAND, they gain hands-on experience with real archaeological data and develop a critical understanding of data management and open science practices.</p>
+        <p>At the same time, the platform is designed for archaeologists, researchers, and anyone interested in understanding and preserving archaeological landscapes. It supports participatory research approaches, encouraging the involvement of local stakeholders in the production and sharing of knowledge.</p>
+        <p>The platform is built on a <strong>PostgreSQL/PostGIS</strong> database and allows users to input and manage both spatial and descriptive data through an intuitive interface. The system is designed to meet the needs of landscape archaeology and comply with national documentation standards.</p>
+      {% endif %}
+    </div>
+
+    <div class="about-text" id="about-it">
+      {% if site_settings and site_settings.about_it %}
+        {{ site_settings.about_it|safe }}
+      {% else %}
+        <p>Il progetto <strong>SHAReLAND</strong>, promosso dall'Università degli Studi Roma Tre nell'ambito dell'insegnamento di Archeologia dei Paesaggi, si pone tre obiettivi principali: favorire la condivisione e il riuso dei dati; contribuire alla ricostruzione dei paesaggi del passato nella diacronia; e sviluppare attività laboratoriali e percorsi formativi finalizzati alla costruzione di una comunità di pratica. La piattaforma è un'infrastruttura digitale partecipativa dedicata ai paesaggi archeologici.</p>
+        <p>Le studentesse e gli studenti rappresentano il fulcro del progetto: attraverso il loro coinvolgimento diretto acquisiscono esperienza nell'uso di dati archeologici e sviluppano una maggiore consapevolezza critica sui temi della gestione e valorizzazione dei dati e dell'open science.</p>
+        <p>Allo stesso tempo, SHAReLAND si rivolge a ricercatrici, ricercatori e a tutti coloro che sono interessati allo studio e alla tutela dei paesaggi archeologici, promuovendo forme di ricerca partecipata, e incoraggiando il coinvolgimento degli attori locali nei processi di produzione e condivisione della conoscenza.</p>
+        <p>La piattaforma si basa su un database <strong>PostgreSQL/PostGIS</strong> e consente l'inserimento e la gestione di dati geografici e descrittivi tramite un'interfaccia intuitiva. La struttura è progettata per rispondere alle esigenze dell'archeologia dei paesaggi e per garantire la conformità agli standard nazionali di documentazione.</p>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- ── Key Information ────────────────────────────────────── -->
+{% if not site_settings or site_settings.show_keyinfo %}
+<section class="home-section keyinfo-section">
+  <div class="home-section-inner">
+    <p class="section-eyebrow"><i class="fas fa-info-circle"></i> Key Information</p>
+    <h2 class="section-title">Informazioni principali</h2>
+
+    <div class="keyinfo-grid">
+      <div class="keyinfo-card">
+        <div class="keyinfo-icon"><i class="fas fa-calendar-alt"></i></div>
+        <div class="keyinfo-body">
+          <div class="keyinfo-label">Date</div>
+          <div class="keyinfo-value">{{ ki_date }}</div>
         </div>
       </div>
-      
-      <div class="stat-card">
-        <div class="stat-icon stat-icon-sites">
-          <i class="fas fa-map-marked-alt"></i>
-        </div>
-        <div class="stat-content">
-          <div class="stat-number">{{ total_sites|default:0 }}</div>
-          <div class="stat-label">Archaeological Sites</div>
-        </div>
-      </div>
-      
-      <div class="stat-card">
-        <div class="stat-icon stat-icon-evidence">
-          <i class="fas fa-archive"></i>
-        </div>
-        <div class="stat-content">
-          <div class="stat-number">{{ total_evidence|default:0 }}</div>
-          <div class="stat-label">Evidence Records</div>
+
+      <div class="keyinfo-card">
+        <div class="keyinfo-icon"><i class="fas fa-university"></i></div>
+        <div class="keyinfo-body">
+          <div class="keyinfo-label">Main Institution</div>
+          <div class="keyinfo-value">{{ ki_institution }}
+            {% if ki_dept %}<small>{{ ki_dept }}</small>{% endif %}
+          </div>
         </div>
       </div>
-      
-      <div class="stat-card">
-        <div class="stat-icon stat-icon-users">
-          <i class="fas fa-users"></i>
+
+      <div class="keyinfo-card">
+        <div class="keyinfo-icon"><i class="fas fa-flask"></i></div>
+        <div class="keyinfo-body">
+          <div class="keyinfo-label">Research Lab</div>
+          <div class="keyinfo-value">{{ ki_lab }}
+            {% if ki_instagram %}
+            <small>
+              <a href="https://www.instagram.com/{{ ki_instagram }}" target="_blank" rel="noopener" class="ig-link">
+                <i class="fab fa-instagram"></i> @{{ ki_instagram }}
+              </a>
+            </small>
+            {% endif %}
+          </div>
         </div>
-        <div class="stat-content">
-          <div class="stat-number">{{ total_users|default:0 }}</div>
-          <div class="stat-label">Active Researchers</div>
+      </div>
+
+      <div class="keyinfo-card keyinfo-card-full">
+        <div class="keyinfo-icon" style="background:#f0fdf4;"><i class="fas fa-graduation-cap" style="color:#16a34a;"></i></div>
+        <div class="keyinfo-body">
+          <div class="keyinfo-label">PhD Project ({{ ki_phd_years }})</div>
+          <div class="phd-badge">
+            <i class="fas fa-scroll"></i>
+            <div>
+              <div class="phd-title">{{ ki_phd_title }}</div>
+              <div class="phd-sub">{{ ki_phd_person }} — {{ ki_institution }}</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 </section>
+{% endif %}
+
+<!-- ── Project Team ───────────────────────────────────────── -->
+{% if not site_settings or site_settings.show_team %}
+<section class="home-section team-section">
+  <div class="home-section-inner">
+    <p class="section-eyebrow"><i class="fas fa-users"></i> Project Team</p>
+    <h2 class="section-title">Chi siamo</h2>
+    <p class="section-lead">The people behind SHAReLAND.</p>
+
+    <div class="team-groups">
+      <!-- Coordinators -->
+      <div>
+        <div class="team-group-title"><i class="fas fa-star" style="color:#f59e0b; margin-right:.35rem;"></i>Project Coordinators / Responsabili scientifici</div>
+        {% for member in team_coordinators %}
+          <div class="team-member">
+            <div class="team-avatar coordinator">{{ member.initials }}</div>
+            <div>
+              <div class="team-name">{{ member.name }}</div>
+              {% if member.role %}<div class="team-role">{{ member.role }}</div>{% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+
+      <!-- Technical -->
+      <div>
+        <div class="team-group-title"><i class="fas fa-code" style="color:#16a34a; margin-right:.35rem;"></i>Technical Development / Sviluppo informatico</div>
+        {% for member in team_technical %}
+          <div class="team-member">
+            <div class="team-avatar tech">{{ member.initials }}</div>
+            <div>
+              <div class="team-name">{{ member.name }}</div>
+              {% if member.role %}<div class="team-role">{{ member.role }}</div>{% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+
+<script>
+function showLang(lang, btn) {
+  document.querySelectorAll('.about-text').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.lang-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById('about-' + lang).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
 
 {% endblock content %}

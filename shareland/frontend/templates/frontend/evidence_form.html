@@ -1132,7 +1132,11 @@
         const requiredFields = {
             general: ['id_id_country'],  // only country is required from location fields
             desc: ['id_id_archaeological_evidence_typology', 'id_id_chronology'],  // typology and chronology required
-            pos: ['id_id_positioning_mode', 'id_id_positional_accuracy', 'id_id_first_discovery_method']  // all required
+            pos: ['id_id_positioning_mode', 'id_id_positional_accuracy'],  // positioning fields only (first_discovery_method is in research tab)
+            landscape: [],
+            research: ['id_id_first_discovery_method'],  // discovery method is in this tab
+            docs: [],
+            notes: []
         };
 
         function showTab(index) {
@@ -1442,11 +1446,17 @@
 
             mapModal.addEventListener('shown.bs.modal', () => {
                 if (!mapInitialized) {
-                    const map = L.map('map').setView([43.7696, 11.2558], 13);
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                        attribution: '&copy; OpenStreetMap contributors'
+                    const map = L.map('map').setView([43.7696, 11.2558], 6);
+                    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
                     }).addTo(map);
                     map.invalidateSize();
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                            pos => map.setView([pos.coords.latitude, pos.coords.longitude], 13),
+                            () => {}
+                        );
+                    }
 
                     const drawnItems = new L.FeatureGroup();
                     map.addLayer(drawnItems);
@@ -1502,11 +1512,17 @@
 
             document.getElementById('uploadShapefileModal').addEventListener('shown.bs.modal', () => {
                 if (!shpMap) {
-                    shpMap = L.map('shapefileMap').setView([43.7696, 11.2558], 13);
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    shpMap = L.map('shapefileMap').setView([43.7696, 11.2558], 6);
+                    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
                         attribution: '&copy; OpenStreetMap'
                     }).addTo(shpMap);
                     shpMap.invalidateSize();
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                            pos => shpMap.setView([pos.coords.latitude, pos.coords.longitude], 13),
+                            () => {}
+                        );
+                    }
                 }
             });
 

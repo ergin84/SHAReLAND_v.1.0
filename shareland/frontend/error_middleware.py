@@ -102,21 +102,21 @@ class ErrorHandlingMiddleware:
 
 class RateLimitMiddleware:
     """
-    Simple rate limiting middleware to prevent abuse
+    Simple rate limiting middleware to prevent abuse.
+    Uses a threading.Lock to be safe under multi-threaded Gunicorn workers.
+    Note: for multi-process deployments, use Redis-backed rate limiting instead.
     """
     def __init__(self, get_response):
         self.get_response = get_response
-        self.requests = {}  # In production, use Redis or Memcached
-        
+        self._requests = {}
+        self._lock = __import__('threading').Lock()
+
     def __call__(self, request):
-        # Skip rate limiting for static files and admin
         if request.path.startswith('/static/') or request.path.startswith('/admin/'):
             return self.get_response(request)
-        
-        # Get client IP
+
         ip = self.get_client_ip(request)
-        
-        # Check rate limit (100 requests per minute per IP)
+
         if self.is_rate_limited(ip):
             logger.warning(f"Rate limit exceeded for IP: {ip}")
             if request.accepts('application/json'):
@@ -125,34 +125,34 @@ class RateLimitMiddleware:
                     'message': 'Too many requests. Please try again later.'
                 }, status=429)
             return render(request, 'errors/429.html', status=429)
-        
+
         return self.get_response(request)
-    
+
     def get_client_ip(self, request):
-        """Get the client's IP address"""
+        """Get the real client IP. Trusts only the first value of X-Forwarded-For."""
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
+            # Only trust the leftmost IP (client-supplied)
+            ip = x_forwarded_for.split(',')[0].strip()
         else:
-            ip = request.META.get('REMOTE_ADDR')
+            ip = request.META.get('REMOTE_ADDR', '')
         return ip
-    
+
     def is_rate_limited(self, ip):
-        """Check if IP has exceeded rate limit"""
+        """Check if IP has exceeded rate limit (100 req/min). Thread-safe."""
         import time
         current_time = time.time()
-        
-        # Clean old entries (older than 1 minute)
-        self.requests = {
-            k: [t for t in v if current_time - t < 60]
-            for k, v in self.requests.items()
-        }
-        
-        # Check current IP
-        if ip not in self.requests:
-            self.requests[ip] = []
-        
-        self.requests[ip].append(current_time)
-        
-        # Rate limit: 100 requests per minute
-        return len(self.requests[ip]) > 100
+        cutoff = current_time - 60
+
+        with self._lock:
+            timestamps = self._requests.get(ip, [])
+            # Evict old timestamps
+            timestamps = [t for t in timestamps if t > cutoff]
+            timestamps.append(current_time)
+            self._requests[ip] = timestamps
+            # Periodically prune stale IPs to avoid unbounded memory growth
+            if len(self._requests) > 10000:
+                self._requests = {
+                    k: v for k, v in self._requests.items() if v
+                }
+            return len(timestamps) > 100

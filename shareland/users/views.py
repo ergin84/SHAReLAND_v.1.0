@@ -55,17 +55,23 @@ def profile(request):
         p_form = ProfileUpdateForm(request.POST,
                                    request.FILES,
                                    instance=user_profile)
-        if u_form.is_valid() and p_form.is_valid():
+        u_valid = u_form.is_valid()
+        p_valid = p_form.is_valid()
+
+        if u_valid and p_valid:
             u_form.save()
             p_form.save()
-            messages.success(request, f'Your account has been updated!')
+            messages.success(request, 'Your profile has been updated.')
             return redirect('profile')
         else:
-            # Debug: log form errors
-            if not u_form.is_valid():
-                messages.error(request, f'User form errors: {u_form.errors}')
-            if not p_form.is_valid():
-                messages.error(request, f'Profile form errors: {p_form.errors}')
+            if not u_valid:
+                for field, errors in u_form.errors.items():
+                    for error in errors:
+                        messages.error(request, f'{field.replace("_", " ").title()}: {error}')
+            if not p_valid:
+                for field, errors in p_form.errors.items():
+                    for error in errors:
+                        messages.error(request, f'{field.replace("_", " ").title()}: {error}')
 
     else:
         u_form = UserUpdateForm(instance=request.user)
