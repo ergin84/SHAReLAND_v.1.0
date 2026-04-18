@@ -65,7 +65,7 @@ jobs:
       - name: Install ruff (linter)
         run: pip install ruff
 
-      # Lint — non-blocking warnings become errors only for critical rules
+      # Lint — fail on critical rule violations
       - name: Lint with ruff
         run: |
           ruff check shareland/ \
