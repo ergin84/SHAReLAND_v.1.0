@@ -4,74 +4,59 @@
 {% block content %}
 <link rel="stylesheet" href="{% static 'frontend/database_browser.css' %}">
 
-<style>
-  .db-title h1, .db-title p { color: #fff !important; }
-
-  /* Simple modal styling for backup confirmation */
-  .modal-backdrop-custom {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.45);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 1050;
-  }
-  .modal-card {
-    background: #fff;
-    border-radius: 8px;
-    padding: 24px;
-    max-width: 520px;
-    width: 90%;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-  }
-  .modal-card h3 { margin-top: 0; }
-  .modal-card .modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 20px;
-  }
-  .modal-warning { color: #b94a48; font-weight: 600; }
-</style>
-
 <div class="database-browser-container">
-  <!-- Header -->
+
+  <!-- ── Header ── -->
   <div class="db-header">
     <div class="db-header-content">
       <div class="db-title">
         <i class="fas fa-database"></i>
         <div>
           <h1>Database Browser</h1>
-          <p>Staff-only access to view all database tables and their content</p>
+          <p>Staff-only · direct table access with full CRUD</p>
         </div>
       </div>
       <div class="db-stats">
         <div class="stat-card">
           <i class="fas fa-table"></i>
-          <div>
-            <span class="stat-value">{{ tables|length }}</span>
-            <span class="stat-label">Tables</span>
-          </div>
+          <div><span class="stat-value">{{ tables|length }}</span><span class="stat-label">Tables</span></div>
         </div>
         {% if selected_table %}
         <div class="stat-card">
           <i class="fas fa-list"></i>
-          <div>
-            <span class="stat-value">{{ total_rows }}</span>
-            <span class="stat-label">Rows</span>
-          </div>
+          <div><span class="stat-value">{{ total_rows }}</span><span class="stat-label">Rows</span></div>
         </div>
         {% endif %}
+        <!-- Backup / Import actions always in header -->
+        <form method="get" action="{% url 'export_database' %}" style="display:inline;">
+          <button type="submit" class="btn-hdr btn-hdr-export" title="Export full DB backup">
+            <i class="fas fa-download"></i> Export Backup
+          </button>
+        </form>
+        <form id="import-form" method="post" action="{% url 'import_database' %}" enctype="multipart/form-data" style="display:inline;">
+          {% csrf_token %}
+          <label class="btn-hdr btn-hdr-import" title="Restore a .sql.gz or .dump backup">
+            <i class="fas fa-upload"></i> Import Backup
+            <input type="file" name="backup_file" accept=".dump,.sql,.gz" style="display:none;" onchange="handleImportFileChange(event);">
+          </label>
+        </form>
       </div>
     </div>
   </div>
 
-  <!-- Main Content -->
+  <!-- ── Danger banner (always visible) ── -->
+  <div class="db-danger-banner">
+    <i class="fas fa-shield-alt"></i>
+    <div>
+      <strong>Caution — direct database access.</strong>
+      Changes here bypass application validation and <em>can break foreign-key relations</em>.
+      <strong>Export a backup before editing or deleting rows.</strong>
+    </div>
+  </div>
+
+  <!-- ── Body ── -->
   <div class="db-content">
+
     <!-- Sidebar -->
     <div class="db-sidebar">
       <div class="sidebar-header">
@@ -79,15 +64,13 @@
         <h3>Tables</h3>
         <span class="sidebar-count">{{ tables|length }}</span>
       </div>
-      
       <div class="sidebar-search">
         <i class="fas fa-search"></i>
-        <input type="text" id="tableSearch" placeholder="Search tables..." class="table-search-input">
+        <input type="text" id="tableSearch" placeholder="Search tables…" class="table-search-input">
       </div>
-
       <div class="sidebar-list">
         {% for table in tables %}
-          <a href="?table={{ table }}&page=1" 
+          <a href="?table={{ table }}&page=1"
              class="table-item {% if selected_table == table %}active{% endif %}"
              data-table-name="{{ table }}">
             <i class="fas fa-table"></i>
@@ -97,20 +80,26 @@
       </div>
     </div>
 
-    <!-- Main Panel -->
+    <!-- Main panel -->
     <div class="db-main">
       {% if selected_table %}
-        <!-- Table Header -->
+
+        <!-- Table header -->
         <div class="table-panel-header">
           <div class="table-title">
             <i class="fas fa-table"></i>
             <h2>{{ selected_table }}</h2>
             <span class="table-row-count">{{ total_rows }} rows</span>
           </div>
+          <div class="table-actions">
+            <button class="btn-action btn-add" onclick="openCreateModal()" title="Insert a new row">
+              <i class="fas fa-plus"></i> Add Row
+            </button>
+          </div>
         </div>
 
         {% if table_data %}
-          <!-- Column Information -->
+          <!-- Schema badges -->
           <div class="columns-section">
             <div class="columns-header">
               <h4><i class="fas fa-columns"></i> Schema</h4>
@@ -118,41 +107,55 @@
             </div>
             <div class="columns-grid">
               {% for col_name, col_type in columns %}
-                <div class="column-badge">
-                  <span class="column-name">{{ col_name }}</span>
+                <div class="column-badge {% if col_name in foreign_keys_info %}column-badge-fk{% endif %}">
+                  <span class="column-name">
+                    {{ col_name }}
+                    {% if col_name in foreign_keys_info %}<i class="fas fa-link fk-icon" title="Foreign key"></i>{% endif %}
+                  </span>
                   <span class="column-type">{{ col_type }}</span>
                 </div>
               {% endfor %}
             </div>
           </div>
 
-          <!-- Data Table -->
+          <!-- Data table -->
           <div class="data-section">
             <div class="data-header">
               <h4><i class="fas fa-th"></i> Data</h4>
-              <span class="page-info">
-                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
-              </span>
+              <span class="page-info">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
             </div>
 
             <div class="table-wrapper">
-              <table class="data-table">
+              <table class="data-table" id="dataTable"
+                     data-table="{{ selected_table }}"
+                     data-pk-col="{{ pk_col }}">
                 <thead>
                   <tr>
+                    <th class="col-actions">Actions</th>
                     {% for col_name in col_names %}
-                      <th>
-                        <span class="column-header-text">{{ col_name }}</span>
-                      </th>
+                      <th>{{ col_name }}</th>
                     {% endfor %}
                   </tr>
                 </thead>
                 <tbody>
                   {% for row in table_data %}
-                    <tr class="data-row">
+                    <tr class="data-row" data-pk-val="{{ row|first|stringformat:'s'|cut:' ' }}">
+                      <!-- Actions cell — pk_val filled by JS after render -->
+                      <td class="col-actions" data-pk-val="{{ row.0.value }}">
+                        <button class="btn-row btn-edit"
+                                onclick="openEditModal('{{ selected_table }}','{{ pk_col }}','{{ row.0.value }}')"
+                                title="Edit row">
+                          <i class="fas fa-pencil-alt"></i>
+                        </button>
+                        <button class="btn-row btn-delete"
+                                onclick="openDeleteModal('{{ selected_table }}','{{ pk_col }}','{{ row.0.value }}')"
+                                title="Delete row">
+                          <i class="fas fa-trash"></i>
+                        </button>
+                      </td>
                       {% for cell in row %}
                         <td>
                           {% if cell.is_fk %}
-                            {# Foreign key column with related data #}
                             {% if cell.value is None %}
                               <span class="cell-null">NULL</span>
                             {% else %}
@@ -160,27 +163,22 @@
                                 <span class="fk-id">{{ cell.value }}</span>
                                 {% if cell.display %}
                                   <span class="fk-display">{{ cell.display }}</span>
-                                  <span class="fk-table">{{ cell.fk_table }}</span>
+                                  <span class="fk-table">→ {{ cell.fk_table }}</span>
                                 {% else %}
-                                  <span class="fk-missing">
-                                    <i class="fas fa-exclamation-triangle"></i> Not found
-                                  </span>
-                                  <span class="fk-table">{{ cell.fk_table }}</span>
+                                  <span class="fk-missing"><i class="fas fa-exclamation-triangle"></i> orphan</span>
+                                  <span class="fk-table">→ {{ cell.fk_table }}</span>
                                 {% endif %}
                               </div>
                             {% endif %}
                           {% else %}
-                            {# Regular column #}
-                            {% if cell.value %}
-                              {% if cell.value|stringformat:"s"|length > 100 %}
-                                <span class="cell-text" title="{{ cell.value }}">
-                                  {{ cell.value|stringformat:"s"|truncatechars:100 }}
-                                </span>
+                            {% if cell.value is not None %}
+                              {% if cell.value|stringformat:"s"|length > 120 %}
+                                <span class="cell-text cell-long" title="{{ cell.value }}">{{ cell.value|stringformat:"s"|truncatechars:120 }}</span>
                               {% else %}
                                 <span class="cell-text">{{ cell.value }}</span>
                               {% endif %}
                             {% else %}
-                              <span class="cell-empty">-</span>
+                              <span class="cell-null">NULL</span>
                             {% endif %}
                           {% endif %}
                         </td>
@@ -193,158 +191,409 @@
 
             <!-- Pagination -->
             {% if page_obj.has_other_pages %}
-              <div class="pagination-section">
-                <nav aria-label="Table pagination" class="pagination-nav">
-                  {% if page_obj.has_previous %}
-                    <a href="?table={{ selected_table }}&page=1" class="pagination-btn pagination-first" title="First page">
-                      <i class="fas fa-chevron-left"></i><i class="fas fa-chevron-left"></i>
-                    </a>
-                    <a href="?table={{ selected_table }}&page={{ page_obj.previous_page_number }}" class="pagination-btn pagination-prev" title="Previous page">
-                      <i class="fas fa-chevron-left"></i>
-                    </a>
-                  {% else %}
-                    <span class="pagination-btn pagination-disabled"><i class="fas fa-chevron-left"></i><i class="fas fa-chevron-left"></i></span>
-                    <span class="pagination-btn pagination-disabled"><i class="fas fa-chevron-left"></i></span>
-                  {% endif %}
-
-                  <span class="pagination-info">
-                    {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ total_rows }}
-                  </span>
-
-                  {% if page_obj.has_next %}
-                    <a href="?table={{ selected_table }}&page={{ page_obj.next_page_number }}" class="pagination-btn pagination-next" title="Next page">
-                      <i class="fas fa-chevron-right"></i>
-                    </a>
-                    <a href="?table={{ selected_table }}&page={{ page_obj.paginator.num_pages }}" class="pagination-btn pagination-last" title="Last page">
-                      <i class="fas fa-chevron-right"></i><i class="fas fa-chevron-right"></i>
-                    </a>
-                  {% else %}
-                    <span class="pagination-btn pagination-disabled"><i class="fas fa-chevron-right"></i></span>
-                    <span class="pagination-btn pagination-disabled"><i class="fas fa-chevron-right"></i><i class="fas fa-chevron-right"></i></span>
-                  {% endif %}
-                </nav>
-              </div>
+            <div class="pagination-section">
+              <nav class="pagination-nav">
+                {% if page_obj.has_previous %}
+                  <a href="?table={{ selected_table }}&page=1" class="pagination-btn">«</a>
+                  <a href="?table={{ selected_table }}&page={{ page_obj.previous_page_number }}" class="pagination-btn">‹</a>
+                {% else %}
+                  <span class="pagination-btn pagination-disabled">«</span>
+                  <span class="pagination-btn pagination-disabled">‹</span>
+                {% endif %}
+                <span class="pagination-info">{{ page_obj.start_index }}–{{ page_obj.end_index }} / {{ total_rows }}</span>
+                {% if page_obj.has_next %}
+                  <a href="?table={{ selected_table }}&page={{ page_obj.next_page_number }}" class="pagination-btn">›</a>
+                  <a href="?table={{ selected_table }}&page={{ page_obj.paginator.num_pages }}" class="pagination-btn">»</a>
+                {% else %}
+                  <span class="pagination-btn pagination-disabled">›</span>
+                  <span class="pagination-btn pagination-disabled">»</span>
+                {% endif %}
+              </nav>
+            </div>
             {% endif %}
           </div>
 
         {% else %}
           <div class="empty-state">
             <i class="fas fa-inbox fa-3x"></i>
-            <h4>No data found</h4>
-            <p>This table is empty or could not be read</p>
+            <h4>No data</h4>
+            <p>This table is empty.</p>
+            <button class="btn-action btn-add" onclick="openCreateModal()" style="margin-top:1rem;">
+              <i class="fas fa-plus"></i> Add First Row
+            </button>
           </div>
         {% endif %}
 
       {% else %}
+        <!-- Welcome -->
         <div class="welcome-state">
-          <div class="welcome-icon">
-            <i class="fas fa-database"></i>
-          </div>
-          <h3>Welcome to Database Browser</h3>
-          <p>Select a table from the list to view its contents and schema information</p>
+          <div class="welcome-icon"><i class="fas fa-database"></i></div>
+          <h3>Database Browser</h3>
+          <p>Select a table from the sidebar to browse, edit, or delete rows.</p>
           <div class="welcome-info">
-            <div class="info-card">
-              <i class="fas fa-layer-group"></i>
-              <h5>{{ tables|length }} Tables Available</h5>
-            </div>
-            <div class="info-card">
-              <i class="fas fa-lock"></i>
-              <h5>Admin Only Access</h5>
-            </div>
-            <div class="info-card">
-              <i class="fas fa-link"></i>
-              <h5>View Relations</h5>
-            </div>
+            <div class="info-card"><i class="fas fa-layer-group"></i><h5>{{ tables|length }} Tables</h5></div>
+            <div class="info-card"><i class="fas fa-pen"></i><h5>Full CRUD</h5></div>
+            <div class="info-card"><i class="fas fa-link"></i><h5>FK Relations</h5></div>
+            <div class="info-card"><i class="fas fa-lock"></i><h5>Admin Only</h5></div>
           </div>
         </div>
       {% endif %}
     </div>
   </div>
+</div>
 
-  <!-- Action Buttons (Export/Import) -->
-  <div class="db-actions" style="display: flex; justify-content: flex-end; align-items: center; gap: 1em; margin-top: 1em; margin-bottom: 1em;">
-    <form method="get" action="{% url 'export_database' %}">
-      <button type="submit" class="btn btn-danger">
-        <i class="fas fa-download"></i> Export Database
-      </button>
-    </form>
-    <form id="import-form" method="post" action="{% url 'import_database' %}" enctype="multipart/form-data" style="display:inline;">
-      {% csrf_token %}
-      <label class="btn btn-primary" style="margin-left: 0.5em;">
-        <i class="fas fa-upload"></i> Import Backup
-        <input type="file" name="backup_file" accept=".dump,.sql,.gz" style="display:none;" onchange="handleImportFileChange(event);">
-      </label>
-    </form>
-  </div>
+<!-- ════════════════════════════════════════════════════════════
+     MODALS
+════════════════════════════════════════════════════════════ -->
 
-  <!-- Custom confirmation modal for import -->
-  <div class="modal-backdrop-custom" id="import-modal">
-    <div class="modal-card">
-      <h3><i class="fas fa-exclamation-triangle" style="color:#d9534f;"></i> Confirm Backup Import</h3>
-      <p id="import-file-name" style="font-weight:600;"></p>
-      <p class="modal-warning">This will overwrite the current database. All data added after the backup was created will be lost.</p>
-      <p class="modal-warning">This action is irreversible. Continue only if you have a recent backup.</p>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" id="import-cancel-btn">Cancel</button>
-        <button type="button" class="btn btn-danger" id="import-confirm-btn">Yes, Import</button>
-      </div>
+<!-- Edit / Create modal -->
+<div class="modal-overlay" id="editModal" style="display:none;">
+  <div class="modal-box modal-lg">
+    <div class="modal-header modal-header-edit">
+      <span id="editModalTitle"><i class="fas fa-pencil-alt"></i> Edit Row</span>
+      <button class="modal-close" onclick="closeModal('editModal')">×</button>
     </div>
-  </div>
-    <script>
-      // Modal-based confirmation for import
-      let pendingImportInput = null;
-      function handleImportFileChange(e) {
-        if (!e.target.files || !e.target.files.length) return;
-        pendingImportInput = e.target;
-        const fileName = e.target.files[0].name;
-        document.getElementById('import-file-name').innerText = `Backup: ${fileName}`;
-        document.getElementById('import-modal').style.display = 'flex';
-      }
-      document.getElementById('import-cancel-btn').addEventListener('click', function() {
-        if (pendingImportInput) pendingImportInput.value = '';
-        pendingImportInput = null;
-        document.getElementById('import-modal').style.display = 'none';
-      });
-      document.getElementById('import-confirm-btn').addEventListener('click', function() {
-        if (pendingImportInput) {
-          document.getElementById('import-modal').style.display = 'none';
-          document.getElementById('import-form').submit();
-        }
-      });
 
-      // Table search functionality
-      document.getElementById('tableSearch').addEventListener('keyup', function(e) {
-        const searchTerm = e.target.value.toLowerCase();
-        const tableItems = document.querySelectorAll('.table-item');
-        tableItems.forEach(item => {
-          const tableName = item.dataset.tableName.toLowerCase();
-          item.style.display = tableName.includes(searchTerm) ? '' : 'none';
-        });
-      });
-    </script>
-  <div class="alert alert-warning" style="margin-top: 1em;">
-    <b>Warning:</b> Importing a backup will <u>overwrite all current data</u> and <u>all changes since the backup will be lost</u>.
-  </div>
-  <div class="alert alert-danger" style="margin-top: 0.5em;">
-    <b>Are you sure?</b> This action is <u>irreversible</u> and will delete all data added after the backup was created.
+    <div class="modal-warn-banner">
+      <i class="fas fa-exclamation-triangle"></i>
+      Changes bypass application logic and may break related records.
+      <a href="{% url 'export_database' %}" class="modal-warn-link">Export a backup first.</a>
+    </div>
+
+    <div class="modal-body" id="editModalBody">
+      <div class="modal-loading"><i class="fas fa-spinner fa-spin"></i> Loading…</div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-modal btn-cancel" onclick="closeModal('editModal')">Cancel</button>
+      <button class="btn-modal btn-save" id="editSaveBtn" onclick="saveRow()">
+        <i class="fas fa-save"></i> Save Changes
+      </button>
+    </div>
   </div>
 </div>
 
+<!-- Delete confirmation modal -->
+<div class="modal-overlay" id="deleteModal" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-header modal-header-danger">
+      <span><i class="fas fa-trash"></i> Delete Row</span>
+      <button class="modal-close" onclick="closeModal('deleteModal')">×</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="delete-warn-block">
+        <i class="fas fa-shield-alt"></i>
+        <div>
+          <strong>Export a backup before deleting.</strong>
+          This operation cannot be undone and may leave orphan records in related tables.
+        </div>
+      </div>
+
+      <div id="depCheckArea">
+        <div class="modal-loading"><i class="fas fa-spinner fa-spin"></i> Checking dependencies…</div>
+      </div>
+
+      <div id="deleteConfirmBlock" style="display:none; margin-top:1rem;">
+        <label class="checkbox-label danger-check">
+          <input type="checkbox" id="deleteConfirmCheck" onchange="toggleDeleteBtn()">
+          I understand this may break related data and have taken a backup
+        </label>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-modal btn-cancel" onclick="closeModal('deleteModal')">Cancel</button>
+      <button class="btn-modal btn-delete" id="deleteConfirmBtn" disabled onclick="confirmDelete()">
+        <i class="fas fa-trash"></i> Delete
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Import confirmation modal -->
+<div class="modal-overlay" id="importModal" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-header modal-header-danger">
+      <span><i class="fas fa-upload"></i> Confirm Backup Import</span>
+      <button class="modal-close" onclick="closeModal('importModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <p id="importFileName" style="font-weight:600; margin-bottom:.75rem;"></p>
+      <div class="delete-warn-block">
+        <i class="fas fa-database"></i>
+        <div>
+          <strong>This will replace the entire database.</strong>
+          All data created after the backup was made will be permanently lost.
+          The restore is atomic — it either fully succeeds or rolls back automatically.
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal btn-cancel" onclick="closeModal('importModal')">Cancel</button>
+      <button class="btn-modal btn-delete" onclick="submitImport()"><i class="fas fa-upload"></i> Yes, Import</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════════════════════ -->
 <script>
-  // Table search functionality
-  document.getElementById('tableSearch').addEventListener('keyup', function(e) {
-    const searchTerm = e.target.value.toLowerCase();
-    const tableItems = document.querySelectorAll('.table-item');
-    
-    tableItems.forEach(item => {
-      const tableName = item.dataset.tableName.toLowerCase();
-      if (tableName.includes(searchTerm)) {
-        item.style.display = '';
-      } else {
-        item.style.display = 'none';
-      }
-    });
+const CSRF = '{{ csrf_token }}';
+const URL_ROW_GET   = '{% url "db_row_get" %}';
+const URL_ROW_SAVE  = '{% url "db_row_save" %}';
+const URL_ROW_DEL   = '{% url "db_row_delete" %}';
+const URL_ROW_DEPS  = '{% url "db_check_dependencies" %}';
+
+let _editState = {};   // {table, pk_col, pk_val, isNew}
+let _deleteState = {}; // {table, pk_col, pk_val, force}
+
+/* ── Modals ── */
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+function openModal(id)  { document.getElementById(id).style.display = 'flex'; }
+
+/* ── Table search ── */
+document.getElementById('tableSearch').addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  document.querySelectorAll('.table-item').forEach(el => {
+    el.style.display = el.dataset.tableName.toLowerCase().includes(q) ? '' : 'none';
   });
+});
+
+/* ── Import ── */
+let _importInput = null;
+function handleImportFileChange(e) {
+  if (!e.target.files?.length) return;
+  _importInput = e.target;
+  document.getElementById('importFileName').textContent = 'File: ' + e.target.files[0].name;
+  openModal('importModal');
+}
+function submitImport() {
+  closeModal('importModal');
+  document.getElementById('import-form').submit();
+}
+document.getElementById('importModal').addEventListener('click', function(e) {
+  if (e.target === this) {
+    if (_importInput) _importInput.value = '';
+    closeModal('importModal');
+  }
+});
+
+/* ── Edit modal ── */
+function openEditModal(table, pkCol, pkVal) {
+  _editState = { table, pk_col: pkCol, pk_val: pkVal, isNew: false };
+  document.getElementById('editModalTitle').innerHTML = '<i class="fas fa-pencil-alt"></i> Edit Row — ' + table;
+  document.getElementById('editModalBody').innerHTML = '<div class="modal-loading"><i class="fas fa-spinner fa-spin"></i> Loading…</div>';
+  document.getElementById('editSaveBtn').disabled = false;
+  openModal('editModal');
+
+  fetch(`${URL_ROW_GET}?table=${encodeURIComponent(table)}&pk_col=${encodeURIComponent(pkCol)}&pk_val=${encodeURIComponent(pkVal)}`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) { document.getElementById('editModalBody').innerHTML = `<p class="text-danger">${data.error}</p>`; return; }
+      renderEditForm(data, false);
+    })
+    .catch(() => { document.getElementById('editModalBody').innerHTML = '<p class="text-danger">Failed to load row.</p>'; });
+}
+
+function openCreateModal() {
+  const tbl = document.getElementById('dataTable');
+  if (!tbl) return;
+  const table = tbl.dataset.table;
+  const pkCol = tbl.dataset.pkCol;
+  _editState = { table, pk_col: pkCol, pk_val: null, isNew: true };
+  document.getElementById('editModalTitle').innerHTML = '<i class="fas fa-plus"></i> Add New Row — ' + table;
+  document.getElementById('editModalBody').innerHTML = '<div class="modal-loading"><i class="fas fa-spinner fa-spin"></i> Loading schema…</div>';
+  document.getElementById('editSaveBtn').disabled = false;
+  openModal('editModal');
+
+  // Fetch schema by requesting a fake row (we just need columns + fk_options)
+  fetch(`${URL_ROW_GET}?table=${encodeURIComponent(table)}&pk_col=${encodeURIComponent(pkCol)}&pk_val=__schema_only__`)
+    .then(r => r.json())
+    .then(data => {
+      // data.error is expected (row not found), but we still get columns & fk_options if present
+      if (data.columns) { renderEditForm(data, true); return; }
+      // fallback: fetch any existing row for schema
+      fetch(`${URL_ROW_GET}?table=${encodeURIComponent(table)}&pk_col=${encodeURIComponent(pkCol)}&pk_val=1`)
+        .then(r2 => r2.json())
+        .then(data2 => renderEditForm(data2, true))
+        .catch(() => { document.getElementById('editModalBody').innerHTML = '<p class="text-danger">Failed to load schema.</p>'; });
+    });
+}
+
+function renderEditForm(data, isNew) {
+  const { columns, row, fk_info, fk_options } = data;
+  let html = '<form id="editForm" onsubmit="return false;">';
+
+  columns.forEach(col => {
+    const { name, type, nullable } = col;
+    const val = isNew ? '' : (row[name] ?? '');
+    const isFk = fk_info && fk_info[name];
+    const isPk = name === _editState.pk_col;
+
+    html += `<div class="form-field">
+      <label class="field-label">${name}
+        ${isFk ? '<span class="badge-fk">FK</span>' : ''}
+        ${isPk  ? '<span class="badge-pk">PK</span>' : ''}
+      </label>`;
+
+    if (isPk && !isNew) {
+      // PK is read-only on edit
+      html += `<input class="field-input field-readonly" value="${escHtml(val)}" readonly>`;
+    } else if (isFk && fk_options && fk_options[name]) {
+      html += `<select class="field-input field-select" name="${escHtml(name)}" ${nullable === 'YES' ? '' : 'required'}>`;
+      if (nullable === 'YES') html += '<option value="">— NULL —</option>';
+      fk_options[name].forEach(opt => {
+        const sel = opt.id === String(val) ? ' selected' : '';
+        html += `<option value="${escHtml(opt.id)}"${sel}>${escHtml(opt.label)} (${escHtml(opt.id)})</option>`;
+      });
+      html += '</select>';
+      if (isFk) {
+        const dep = fk_info[name];
+        html += `<span class="field-hint">→ ${dep.referenced_table}.${dep.referenced_column}</span>`;
+      }
+    } else if (type === 'boolean') {
+      const checked = val === 'True' || val === 'true' || val === '1' ? 'checked' : '';
+      html += `<input type="checkbox" class="field-checkbox" name="${escHtml(name)}" ${checked}>`;
+    } else if (type === 'text') {
+      html += `<textarea class="field-input field-textarea" name="${escHtml(name)}" rows="3">${escHtml(val)}</textarea>`;
+    } else if (type.includes('timestamp') || type.includes('date')) {
+      html += `<input type="datetime-local" class="field-input" name="${escHtml(name)}" value="${escHtml(val.replace(' ', 'T').substring(0,16))}">`;
+    } else if (type.includes('int') || type.includes('numeric') || type.includes('float') || type.includes('double') || type.includes('real')) {
+      html += `<input type="number" step="any" class="field-input" name="${escHtml(name)}" value="${escHtml(val)}">`;
+    } else {
+      html += `<input type="text" class="field-input" name="${escHtml(name)}" value="${escHtml(val)}">`;
+    }
+
+    html += '</div>';
+  });
+
+  html += '</form>';
+  document.getElementById('editModalBody').innerHTML = html;
+}
+
+function saveRow() {
+  const form = document.getElementById('editForm');
+  if (!form) return;
+
+  const fields = {};
+  form.querySelectorAll('[name]').forEach(el => {
+    if (el.type === 'checkbox') {
+      fields[el.name] = el.checked;
+    } else {
+      fields[el.name] = el.value;
+    }
+  });
+
+  const btn = document.getElementById('editSaveBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
+
+  fetch(URL_ROW_SAVE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+    body: JSON.stringify({
+      table: _editState.table,
+      pk_col: _editState.pk_col,
+      pk_val: _editState.isNew ? null : _editState.pk_val,
+      fields,
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) { closeModal('editModal'); location.reload(); }
+    else {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-save"></i> Save Changes';
+      showModalError('editModalBody', data.error || 'Save failed.');
+    }
+  })
+  .catch(() => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-save"></i> Save Changes';
+    showModalError('editModalBody', 'Network error.');
+  });
+}
+
+/* ── Delete modal ── */
+function openDeleteModal(table, pkCol, pkVal) {
+  _deleteState = { table, pk_col: pkCol, pk_val: pkVal, force: false };
+  document.getElementById('depCheckArea').innerHTML = '<div class="modal-loading"><i class="fas fa-spinner fa-spin"></i> Checking dependencies…</div>';
+  document.getElementById('deleteConfirmBlock').style.display = 'none';
+  document.getElementById('deleteConfirmCheck').checked = false;
+  document.getElementById('deleteConfirmBtn').disabled = true;
+  openModal('deleteModal');
+
+  fetch(`${URL_ROW_DEPS}?table=${encodeURIComponent(table)}&pk_col=${encodeURIComponent(pkCol)}&pk_val=${encodeURIComponent(pkVal)}`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) { document.getElementById('depCheckArea').innerHTML = `<p class="text-danger">${data.error}</p>`; return; }
+      renderDepsResult(data.dependencies);
+    });
+}
+
+function renderDepsResult(deps) {
+  const area = document.getElementById('depCheckArea');
+  if (!deps.length) {
+    area.innerHTML = '<div class="dep-ok"><i class="fas fa-check-circle"></i> No dependent records found — safe to delete.</div>';
+  } else {
+    let html = '<div class="dep-warn"><i class="fas fa-exclamation-triangle"></i> <strong>Dependent records found:</strong></div><ul class="dep-list">';
+    deps.forEach(d => {
+      html += `<li><span class="dep-table">${d.table}</span> — <strong>${d.count}</strong> row(s) reference this via <code>${d.column}</code></li>`;
+    });
+    html += '</ul><p class="dep-hint">Deleting this row will leave those records without a valid reference (orphan data).</p>';
+    area.innerHTML = html;
+    _deleteState.force = true;
+  }
+  document.getElementById('deleteConfirmBlock').style.display = '';
+}
+
+function toggleDeleteBtn() {
+  document.getElementById('deleteConfirmBtn').disabled = !document.getElementById('deleteConfirmCheck').checked;
+}
+
+function confirmDelete() {
+  const btn = document.getElementById('deleteConfirmBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting…';
+
+  fetch(URL_ROW_DEL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+    body: JSON.stringify({ ..._deleteState })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) { closeModal('deleteModal'); location.reload(); }
+    else if (data.needs_confirm) {
+      renderDepsResult(data.dependencies);
+      btn.innerHTML = '<i class="fas fa-trash"></i> Delete';
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-trash"></i> Delete';
+      document.getElementById('depCheckArea').innerHTML += `<p class="text-danger mt-2">${data.error}</p>`;
+    }
+  });
+}
+
+/* ── Helpers ── */
+function escHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function showModalError(bodyId, msg) {
+  const el = document.getElementById(bodyId);
+  let errDiv = el.querySelector('.modal-error-msg');
+  if (!errDiv) { errDiv = document.createElement('div'); errDiv.className = 'modal-error-msg'; el.prepend(errDiv); }
+  errDiv.textContent = msg;
+}
+
+/* close modals on backdrop click */
+['editModal','deleteModal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', function(e) {
+    if (e.target === this) closeModal(id);
+  });
+});
 </script>
 {% endblock content %}
-

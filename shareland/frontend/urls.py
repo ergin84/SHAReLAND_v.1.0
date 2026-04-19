@@ -49,6 +49,10 @@ urlpatterns = [
     path('database-browser/', views.database_browser, name='database_browser'),
     path('database-export/', views.export_database, name='export_database'),
     path('database-import/', views.import_database, name='import_database'),
+    path('database-browser/row/get/', views.db_row_get, name='db_row_get'),
+    path('database-browser/row/save/', views.db_row_save, name='db_row_save'),
+    path('database-browser/row/delete/', views.db_row_delete, name='db_row_delete'),
+    path('database-browser/row/dependencies/', views.db_check_dependencies, name='db_check_dependencies'),
 
     # API endpoints for relations
     path('api/sites/', views.api_sites_list, name='api-sites-list'),

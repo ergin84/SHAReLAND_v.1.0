@@ -2396,6 +2396,8 @@ def database_browser(request):
         processed_data = None
         display_col_names = None
 
+    pk_col = _get_pk_column(selected_table) if selected_table and selected_table in tables else None
+
     context = {
         'tables': tables,
         'selected_table': selected_table,
@@ -2406,9 +2408,322 @@ def database_browser(request):
         'total_rows': total_rows,
         'foreign_keys_info': foreign_keys_info,
         'display_columns': display_columns,
+        'pk_col': pk_col,
     }
 
     return render(request, 'frontend/database_browser.html', context)
+
+
+# ── DB Browser CRUD helpers ────────────────────────────────────────────────
+
+def _get_tables():
+    with connection.cursor() as cur:
+        cur.execute("""
+            SELECT table_name FROM information_schema.tables
+            WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+            ORDER BY table_name
+        """)
+        return [r[0] for r in cur.fetchall()]
+
+def _get_pk_column(table):
+    """Return the first primary-key column name for *table*, or None."""
+    with connection.cursor() as cur:
+        cur.execute("""
+            SELECT kcu.column_name
+            FROM information_schema.table_constraints tc
+            JOIN information_schema.key_column_usage kcu
+                ON tc.constraint_name = kcu.constraint_name
+                AND tc.table_schema = kcu.table_schema
+            WHERE tc.constraint_type = 'PRIMARY KEY'
+              AND tc.table_schema = 'public'
+              AND tc.table_name = %s
+            ORDER BY kcu.ordinal_position
+            LIMIT 1
+        """, [table])
+        row = cur.fetchone()
+        return row[0] if row else None
+
+def _get_columns(table):
+    """Return list of (column_name, data_type, is_nullable) for *table*."""
+    with connection.cursor() as cur:
+        cur.execute("""
+            SELECT column_name, data_type, is_nullable
+            FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = %s
+            ORDER BY ordinal_position
+        """, [table])
+        return cur.fetchall()
+
+def _get_fk_info(table):
+    """Return dict {col: {referenced_table, referenced_column}} for *table*."""
+    with connection.cursor() as cur:
+        cur.execute("""
+            SELECT kcu.column_name, ccu.table_name, ccu.column_name
+            FROM information_schema.table_constraints tc
+            JOIN information_schema.key_column_usage kcu
+                ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
+            JOIN information_schema.constraint_column_usage ccu
+                ON ccu.constraint_name = tc.constraint_name AND ccu.table_schema = tc.table_schema
+            WHERE tc.constraint_type = 'FOREIGN KEY'
+              AND tc.table_schema = 'public'
+              AND tc.table_name = %s
+        """, [table])
+        return {r[0]: {'referenced_table': r[1], 'referenced_column': r[2]}
+                for r in cur.fetchall()}
+
+
+@login_required
+@user_passes_test(is_staff)
+def db_row_get(request):
+    """Return a single row as JSON for the edit modal."""
+    from psycopg2 import sql as pgsql
+    table = request.GET.get('table', '')
+    pk_col = request.GET.get('pk_col', '')
+    pk_val = request.GET.get('pk_val', '')
+
+    if not table or table not in _get_tables():
+        return JsonResponse({'error': 'Invalid table'}, status=400)
+
+    cols = _get_columns(table)
+    col_names = [c[0] for c in cols]
+    if pk_col not in col_names:
+        return JsonResponse({'error': 'Invalid pk column'}, status=400)
+
+    fk_info = _get_fk_info(table)
+
+    # Fetch the row
+    with connection.cursor() as cur:
+        cur.execute(
+            pgsql.SQL("SELECT * FROM {} WHERE {} = %s LIMIT 1").format(
+                pgsql.Identifier(table), pgsql.Identifier(pk_col)
+            ), [pk_val]
+        )
+        row = cur.fetchone()
+    if not row:
+        return JsonResponse({'error': 'Row not found'}, status=404)
+
+    row_dict = dict(zip(col_names, row))
+
+    # For FK columns, fetch dropdown options (id + display label, max 500)
+    fk_options = {}
+    for col, info in fk_info.items():
+        ref_table = info['referenced_table']
+        ref_col = info['referenced_column']
+        # Pick a display column
+        with connection.cursor() as cur:
+            cur.execute("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_schema='public' AND table_name=%s
+                  AND column_name IN ('name','title','site_name','username','surname','denominazione_regione')
+                ORDER BY CASE column_name
+                    WHEN 'name' THEN 1 WHEN 'title' THEN 2 WHEN 'site_name' THEN 3
+                    WHEN 'username' THEN 4 ELSE 5 END LIMIT 1
+            """, [ref_table])
+            disp = cur.fetchone()
+            display_col = disp[0] if disp else ref_col
+            cur.execute(
+                pgsql.SQL("SELECT {}, {} FROM {} ORDER BY {} LIMIT 500").format(
+                    pgsql.Identifier(ref_col), pgsql.Identifier(display_col),
+                    pgsql.Identifier(ref_table), pgsql.Identifier(ref_col)
+                )
+            )
+            fk_options[col] = [
+                {'id': str(r[0]), 'label': str(r[1]) if r[1] else str(r[0])}
+                for r in cur.fetchall()
+            ]
+
+    # Serialise row values to strings (handles dates, decimals, etc.)
+    serialised = {k: (str(v) if v is not None else '') for k, v in row_dict.items()}
+
+    return JsonResponse({
+        'row': serialised,
+        'columns': [{'name': c[0], 'type': c[1], 'nullable': c[2]} for c in cols],
+        'fk_info': {k: v for k, v in fk_info.items()},
+        'fk_options': fk_options,
+    })
+
+
+@login_required
+@user_passes_test(is_staff)
+def db_check_dependencies(request):
+    """Return tables/counts that reference a given row (pre-delete check)."""
+    from psycopg2 import sql as pgsql
+    table = request.GET.get('table', '')
+    pk_col = request.GET.get('pk_col', '')
+    pk_val = request.GET.get('pk_val', '')
+
+    tables = _get_tables()
+    if not table or table not in tables:
+        return JsonResponse({'error': 'Invalid table'}, status=400)
+
+    # Find all FKs in any table that point to this table
+    with connection.cursor() as cur:
+        cur.execute("""
+            SELECT kcu.table_name, kcu.column_name
+            FROM information_schema.table_constraints tc
+            JOIN information_schema.key_column_usage kcu
+                ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
+            JOIN information_schema.constraint_column_usage ccu
+                ON ccu.constraint_name = tc.constraint_name AND ccu.table_schema = tc.table_schema
+            WHERE tc.constraint_type = 'FOREIGN KEY'
+              AND tc.table_schema = 'public'
+              AND ccu.table_name = %s
+              AND ccu.column_name = %s
+        """, [table, pk_col])
+        refs = cur.fetchall()
+
+    deps = []
+    for ref_table, ref_col in refs:
+        if ref_table not in tables:
+            continue
+        with connection.cursor() as cur:
+            cur.execute(
+                pgsql.SQL("SELECT COUNT(*) FROM {} WHERE {} = %s").format(
+                    pgsql.Identifier(ref_table), pgsql.Identifier(ref_col)
+                ), [pk_val]
+            )
+            count = cur.fetchone()[0]
+        if count > 0:
+            deps.append({'table': ref_table, 'column': ref_col, 'count': count})
+
+    return JsonResponse({'dependencies': deps})
+
+
+@login_required
+@user_passes_test(is_staff)
+@require_POST
+def db_row_save(request):
+    """Create or update a row. POST body is JSON."""
+    import json
+    from psycopg2 import sql as pgsql
+
+    try:
+        body = json.loads(request.body)
+    except ValueError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    table = body.get('table', '')
+    pk_col = body.get('pk_col', '')
+    pk_val = body.get('pk_val')          # None → insert, value → update
+    fields = body.get('fields', {})      # {col: value}
+
+    tables = _get_tables()
+    if not table or table not in tables:
+        return JsonResponse({'error': 'Invalid table'}, status=400)
+
+    cols = _get_columns(table)
+    valid_cols = {c[0] for c in cols}
+    # Sanitise: only accept known column names
+    fields = {k: (v if v != '' else None) for k, v in fields.items() if k in valid_cols and k != pk_col}
+    if not fields:
+        return JsonResponse({'error': 'No fields to save'}, status=400)
+
+    try:
+        with connection.cursor() as cur:
+            if pk_val:
+                # UPDATE
+                if pk_col not in valid_cols:
+                    return JsonResponse({'error': 'Invalid pk column'}, status=400)
+                set_clause = pgsql.SQL(', ').join(
+                    pgsql.SQL("{} = %s").format(pgsql.Identifier(k)) for k in fields
+                )
+                cur.execute(
+                    pgsql.SQL("UPDATE {} SET {} WHERE {} = %s").format(
+                        pgsql.Identifier(table),
+                        set_clause,
+                        pgsql.Identifier(pk_col),
+                    ),
+                    list(fields.values()) + [pk_val]
+                )
+                action = 'updated'
+            else:
+                # INSERT
+                col_sql = pgsql.SQL(', ').join(pgsql.Identifier(k) for k in fields)
+                val_sql = pgsql.SQL(', ').join(pgsql.SQL('%s') for _ in fields)
+                cur.execute(
+                    pgsql.SQL("INSERT INTO {} ({}) VALUES ({})").format(
+                        pgsql.Identifier(table), col_sql, val_sql
+                    ),
+                    list(fields.values())
+                )
+                action = 'created'
+        logger.info("DB Browser %s: table=%s pk=%s by user=%s", action, table, pk_val, request.user)
+        return JsonResponse({'success': True, 'action': action})
+    except Exception as exc:
+        logger.exception("DB Browser save error table=%s", table)
+        return JsonResponse({'error': str(exc)}, status=500)
+
+
+@login_required
+@user_passes_test(is_staff)
+@require_POST
+def db_row_delete(request):
+    """Delete a row. POST body is JSON. Requires force=true if deps exist."""
+    import json
+    from psycopg2 import sql as pgsql
+
+    try:
+        body = json.loads(request.body)
+    except ValueError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    table = body.get('table', '')
+    pk_col = body.get('pk_col', '')
+    pk_val = body.get('pk_val')
+    force = body.get('force', False)
+
+    tables = _get_tables()
+    if not table or table not in tables:
+        return JsonResponse({'error': 'Invalid table'}, status=400)
+
+    cols = _get_columns(table)
+    if pk_col not in {c[0] for c in cols}:
+        return JsonResponse({'error': 'Invalid pk column'}, status=400)
+
+    # Dependency check unless caller confirmed with force=true
+    if not force:
+        with connection.cursor() as cur:
+            cur.execute("""
+                SELECT kcu.table_name, kcu.column_name
+                FROM information_schema.table_constraints tc
+                JOIN information_schema.key_column_usage kcu
+                    ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
+                JOIN information_schema.constraint_column_usage ccu
+                    ON ccu.constraint_name = tc.constraint_name AND ccu.table_schema = tc.table_schema
+                WHERE tc.constraint_type = 'FOREIGN KEY'
+                  AND tc.table_schema = 'public'
+                  AND ccu.table_name = %s AND ccu.column_name = %s
+            """, [table, pk_col])
+            refs = cur.fetchall()
+        deps = []
+        for ref_table, ref_col in refs:
+            if ref_table not in tables:
+                continue
+            with connection.cursor() as cur:
+                cur.execute(
+                    pgsql.SQL("SELECT COUNT(*) FROM {} WHERE {} = %s").format(
+                        pgsql.Identifier(ref_table), pgsql.Identifier(ref_col)
+                    ), [pk_val]
+                )
+                count = cur.fetchone()[0]
+            if count > 0:
+                deps.append({'table': ref_table, 'column': ref_col, 'count': count})
+        if deps:
+            return JsonResponse({'needs_confirm': True, 'dependencies': deps})
+
+    try:
+        with connection.cursor() as cur:
+            cur.execute(
+                pgsql.SQL("DELETE FROM {} WHERE {} = %s").format(
+                    pgsql.Identifier(table), pgsql.Identifier(pk_col)
+                ), [pk_val]
+            )
+        logger.info("DB Browser DELETE: table=%s pk_col=%s pk_val=%s by user=%s",
+                    table, pk_col, pk_val, request.user)
+        return JsonResponse({'success': True})
+    except Exception as exc:
+        logger.exception("DB Browser delete error table=%s", table)
+        return JsonResponse({'error': str(exc)}, status=500)
 
 
 # ==================== AUDIT LOGGING VIEWS ====================
