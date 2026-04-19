@@ -2532,12 +2532,19 @@ def is_staff(user):
 @user_passes_test(is_staff)
 def export_database(request):
     """
-    Export the entire PostgreSQL database in custom format for migration/restore.
-    Only staff/admin users can access.
-    Uses subprocess.run (not Popen) so the full dump is buffered before sending —
-    this avoids serving a corrupt/empty file when pg_dump fails mid-stream.
+    Export the entire PostgreSQL database as a gzip-compressed plain SQL file.
+
+    Plain SQL format (not -Fc custom format) is used so the backup can be
+    restored on any PostgreSQL version — the custom binary format embeds the
+    pg_dump version and cannot be read by an older pg_restore (e.g. a dump
+    from PG16 fails on a VPS running PG14).
+
+    Uses subprocess.run (blocking) so the full dump is buffered before sending —
+    this guarantees we can inspect returncode/stderr before writing any bytes to
+    the HTTP response.
     """
     import datetime
+    import gzip as _gzip
     db_name = os.environ.get('DB_NAME', getattr(settings, 'DATABASES', {}).get('default', {}).get('NAME'))
     db_user = os.environ.get('DB_USER', getattr(settings, 'DATABASES', {}).get('default', {}).get('USER'))
     db_password = os.environ.get('DB_PASSWORD', getattr(settings, 'DATABASES', {}).get('default', {}).get('PASSWORD'))
@@ -2545,7 +2552,7 @@ def export_database(request):
     db_port = os.environ.get('DB_PORT', getattr(settings, 'DATABASES', {}).get('default', {}).get('PORT', '5432'))
 
     now = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f"{db_name}_backup_{now}.dump"
+    filename = f"{db_name}_backup_{now}.sql.gz"
 
     env = os.environ.copy()
     env['PGPASSWORD'] = db_password
@@ -2554,12 +2561,14 @@ def export_database(request):
         '-U', db_user,
         '-h', db_host,
         '-p', str(db_port),
-        '-Fc',  # custom format
-        db_name
+        # Plain SQL text format: version-agnostic, works across all PG versions.
+        # -Fc (custom binary) embeds the pg_dump version and cannot be restored
+        # by an older pg_restore on a different server.
+        '--no-owner',        # omit ALTER … OWNER TO — restoring user becomes owner
+        '--no-privileges',   # omit GRANT/REVOKE — avoids role-not-found errors
+        db_name,
     ]
     try:
-        # Wait for pg_dump to complete fully before touching the response.
-        # This guarantees we can inspect returncode/stderr before sending any bytes.
         result = subprocess.run(cmd, capture_output=True, env=env)
         if result.returncode != 0:
             error_msg = result.stderr.decode(errors='replace')
@@ -2570,9 +2579,9 @@ def export_database(request):
                 content_type='text/plain'
             )
         if result.stderr:
-            # Non-fatal warnings (e.g. skipped large objects) — log but still serve
             logger.warning("pg_dump warnings (db=%s): %s", db_name, result.stderr.decode(errors='replace'))
-        response = HttpResponse(result.stdout, content_type='application/octet-stream')
+        compressed = _gzip.compress(result.stdout)
+        response = HttpResponse(compressed, content_type='application/gzip')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
     except Exception as e:
