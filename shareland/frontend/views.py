@@ -2692,16 +2692,38 @@ def import_database(request):
         conn.close()
 
         # ── Step 3: Restore ────────────────────────────────────────────────
+        # --single-transaction wraps all DDL/DML in one BEGIN/COMMIT so the
+        # restore is atomic: either every table is created or none are.
+        # This prevents the "partial restore" state where pg_restore continues
+        # past errors and leaves Django with a database missing some tables.
         restore_target = decompressed_path or tmp_path
+
+        def _rollback_to_pre_restore():
+            """Restore the safety backup so Django is left in a working state."""
+            if not (pre_restore_backup_path and os.path.exists(pre_restore_backup_path)):
+                return False
+            logger.warning("Attempting auto-rollback from pre-restore backup: %s", pre_restore_backup_path)
+            rb = subprocess.run(
+                [pg_restore_cmd, '-O', '--no-privileges', '--single-transaction',
+                 '-U', db_user, '-h', db_host, '-p', str(db_port),
+                 '-d', db_name, pre_restore_backup_path],
+                env=env, capture_output=True, text=True
+            )
+            if rb.returncode == 0:
+                logger.info("Auto-rollback succeeded — database restored to pre-restore state.")
+                return True
+            logger.error("Auto-rollback failed: %s", rb.stderr)
+            return False
 
         if backup_file.name.endswith('.sql') or (is_gzip and backup_file.name.endswith('.sql.gz')):
             restore_cmd = [
                 psql_cmd, '-U', db_user, '-h', db_host, '-p', str(db_port),
+                '--single-transaction',
                 '-d', db_name, '-f', restore_target,
             ]
         else:
             restore_cmd = [
-                pg_restore_cmd, '-O', '--no-privileges',
+                pg_restore_cmd, '-O', '--no-privileges', '--single-transaction',
                 '-U', db_user, '-h', db_host, '-p', str(db_port),
                 '-d', db_name, restore_target,
             ]
@@ -2710,6 +2732,7 @@ def import_database(request):
 
         if restore.returncode != 0:
             if 'unsupported version' in restore.stderr:
+                _rollback_to_pre_restore()
                 raise Exception(
                     "The backup file format is not compatible with this PostgreSQL version.\n\n"
                     f"Error: {restore.stderr}\n\n"
@@ -2728,6 +2751,7 @@ def import_database(request):
                     env=env, capture_output=True, text=True
                 )
                 if conv.returncode != 0:
+                    _rollback_to_pre_restore()
                     raise Exception(restore.stderr + "\n" + conv.stderr)
                 with open(sql_path, 'r') as f:
                     lines = f.readlines()
@@ -2737,12 +2761,15 @@ def import_database(request):
                             f.write(line)
                 restore2 = subprocess.run(
                     [psql_cmd, '-U', db_user, '-h', db_host, '-p', str(db_port),
+                     '--single-transaction',
                      '-d', db_name, '-f', sql_path],
                     env=env, capture_output=True, text=True
                 )
                 if restore2.returncode != 0:
+                    _rollback_to_pre_restore()
                     raise Exception(restore.stderr + "\n" + restore2.stderr)
             else:
+                _rollback_to_pre_restore()
                 raise Exception(restore.stderr)
 
         if restore.stderr:
