@@ -65,7 +65,7 @@ jobs:
             sleep 3
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
               --max-time 10 \
-              http://localhost:${{ secrets.VPS_APP_PORT || 8000 }}/health/ \
+              http://localhost/health/ \
               || echo "000")
             if [ "$STATUS" != "200" ]; then
               echo "Health check FAILED (HTTP $STATUS) — rolling back"
