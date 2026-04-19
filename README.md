@@ -1,12 +1,18 @@
 # 🏛️ SHAReLAND - Archaeological Research Database
 
-**Version 2.0 - Production Ready**
+**Version 2.1 - Production Ready**
 
 SHAReLAND è una piattaforma completa per la gestione e catalogazione di ricerche archeologiche, siti e evidenze archeologiche.
 
 ---
 
-## 🚀 Nuove Funzionalità v2.0 (Dicembre 2025)
+## 🚀 Nuove Funzionalità v2.1 (Aprile 2026)
+
+### ✅ UI e Esperienza Utente
+- Sezione statistiche piattaforma nella home page con design responsivo
+- Lightbox per anteprime immagini con stile avanzato e gestione errori
+- Notifiche per immagini mancanti nelle viste dettaglio
+- Database browser riprogettato con CRUD completo, avvisi dipendenze e prompt di backup
 
 ### ✅ Stabilità e Affidabilità
 - Sistema completo di error handling
@@ -396,6 +402,13 @@ Per assistenza tecnica:
 
 ## 📝 Changelog
 
+### v2.1 - Aprile 2026
+- ✅ Sezione statistiche piattaforma nella home page con design responsivo
+- ✅ Lightbox per anteprime immagini con stile avanzato e gestione errori
+- ✅ Notifiche per immagini mancanti nelle viste dettaglio
+- ✅ Database browser riprogettato con CRUD completo, avvisi dipendenze e prompt di backup
+- ✅ Documentazione CI/CD per deployment su Aruba VPS
+
 ### v2.0 - Dicembre 2025
 - ✅ Sistema completo error handling
 - ✅ Rate limiting e protezione DDoS
@@ -421,7 +434,7 @@ Per assistenza tecnica:
 
 ## 📄 License
 
-Copyright © 2025 SHAReLAND. All rights reserved.
+Copyright © 2026 SHAReLAND. All rights reserved.
 
 ---
 
