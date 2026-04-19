@@ -65,6 +65,7 @@ jobs:
             sleep 3
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
               --max-time 10 \
+              --unix-socket /run/gunicorn/gunicorn.sock \
               http://localhost/health/ \
               || echo "000")
             if [ "$STATUS" != "200" ]; then
