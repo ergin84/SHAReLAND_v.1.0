@@ -1178,5 +1178,61 @@ function getCookie(name) {
     }
     return cookieValue;
 }
+
+function openLightbox(url, caption) {
+    var lb = document.getElementById('imgLightbox');
+    var lbImg = document.getElementById('imgLightboxImg');
+    var lbCaption = document.getElementById('imgLightboxCaption');
+    lbImg.src = url;
+    lbCaption.textContent = caption || '';
+    lb.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox() {
+    var lb = document.getElementById('imgLightbox');
+    lb.style.display = 'none';
+    document.getElementById('imgLightboxImg').src = '';
+    document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeLightbox();
+});
 </script>
+
+<!-- Lightbox Modal -->
+<div id="imgLightbox" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.88); align-items:center; justify-content:center; flex-direction:column;" onclick="if(event.target===this) closeLightbox();">
+  <button onclick="closeLightbox()" style="position:absolute; top:18px; right:24px; background:none; border:none; color:#fff; font-size:2rem; cursor:pointer; line-height:1;" title="Close">&times;</button>
+  <img id="imgLightboxImg" src="" alt="Enlarged image" style="max-width:92vw; max-height:82vh; border-radius:6px; box-shadow:0 8px 40px rgba(0,0,0,0.7); object-fit:contain; background:#111;">
+  <div id="imgLightboxCaption" style="color:#eee; margin-top:14px; font-size:0.97rem; max-width:80vw; text-align:center;"></div>
+</div>
+
+<style>
+.img-thumb-link {
+    position: relative;
+    display: inline-block;
+    cursor: zoom-in;
+}
+.img-thumb-link:hover .img-thumb {
+    opacity: 0.82;
+    transition: opacity 0.15s;
+}
+.img-thumb-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.15s;
+    color: #fff;
+    font-size: 1.7rem;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.7);
+    pointer-events: none;
+}
+.img-thumb-link:hover .img-thumb-overlay {
+    opacity: 1;
+}
+</style>
 {% endblock %}
