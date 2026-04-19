@@ -12,6 +12,11 @@
   .tab-content { display: none; animation: fadeIn 0.3s; }
   .tab-content.active { display: block; }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .img-missing-notice {
+    align-items: flex-start; gap: .5rem;
+    background: #fff3cd; border: 1px solid #f0ad4e; border-radius: 6px;
+    padding: .75rem 1rem; font-size: .85rem; color: #7d4e00;
+  }
 </style>
 
 <div class="container mt-4 mb-4">
@@ -827,18 +832,24 @@
                   
                   {% if image.source_url %}
                     <div class="detail-item">
-                      <strong>Source URL</strong>
+                      <strong>Source / File</strong>
                       <div class="mt-1">
-                        <a href="{{ image.source_url }}" target="_blank" rel="noopener">{{ image.source_url }}</a>
+                        {% if image.source_url|slice:":4" == "http" %}
+                          {# External URL — link opens in new tab #}
+                          <a href="{{ image.source_url }}" target="_blank" rel="noopener">{{ image.source_url }}</a>
+                        {% else %}
+                          {# Local upload stored under /media/ #}
+                          <span class="text-muted small"><i class="fas fa-paperclip"></i> {{ image.source_url }}</span>
+                        {% endif %}
                       </div>
                     </div>
                   {% else %}
                     <div class="detail-item text-muted">
-                      <strong>Source URL</strong>
+                      <strong>Source / File</strong>
                       <div class="mt-1">—</div>
                     </div>
                   {% endif %}
-                  
+
                   {% if image.key_words %}
                     <div class="detail-item">
                       <strong>Key Words</strong>
@@ -851,11 +862,25 @@
                     </div>
                   {% endif %}
                 </div>
-                
+
                 <!-- Image Preview -->
                 {% if image.source_url %}
                   <div class="mt-3">
-                    <img src="{{ image.source_url }}" alt="{{ image.desc_image|default:'Image' }}" class="img-fluid rounded" style="max-height: 300px; width: auto; object-fit: contain;">
+                    <img src="{{ image.source_url }}"
+                         alt="{{ image.desc_image|default:'Image' }}"
+                         class="img-fluid rounded img-preview"
+                         style="max-height: 300px; width: auto; object-fit: contain; display:block;"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="img-missing-notice" style="display:none;">
+                      <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                      <span>
+                        Image file not found on the server.
+                        {% if image.source_url|slice:":4" != "http" %}
+                          The file <code>{{ image.source_url }}</code> must be present in the
+                          server's <code>media/</code> directory.
+                        {% endif %}
+                      </span>
+                    </div>
                   </div>
                 {% endif %}
               </div>
