@@ -13,9 +13,16 @@
   .tab-content.active { display: block; }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   .img-missing-notice {
-    align-items: flex-start; gap: .5rem;
-    background: #fff3cd; border: 1px solid #f0ad4e; border-radius: 6px;
-    padding: .75rem 1rem; font-size: .85rem; color: #7d4e00;
+    align-items: center; gap: 1rem;
+    background: #f8f9fa; border: 2px dashed #ced4da; border-radius: 8px;
+    padding: 1.25rem 1.5rem; font-size: .875rem; color: #6c757d;
+    max-width: 320px;
+  }
+  .img-missing-placeholder {
+    width: 56px; height: 56px; flex-shrink: 0;
+    background: #e9ecef; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; color: #adb5bd;
   }
 </style>
 
@@ -830,26 +837,6 @@
                     </div>
                   {% endif %}
                   
-                  {% if image.source_url %}
-                    <div class="detail-item">
-                      <strong>Source / File</strong>
-                      <div class="mt-1">
-                        {% if image.source_url|slice:":4" == "http" %}
-                          {# External URL — link opens in new tab #}
-                          <a href="{{ image.source_url }}" target="_blank" rel="noopener">{{ image.source_url }}</a>
-                        {% else %}
-                          {# Local upload stored under /media/ #}
-                          <span class="text-muted small"><i class="fas fa-paperclip"></i> {{ image.source_url }}</span>
-                        {% endif %}
-                      </div>
-                    </div>
-                  {% else %}
-                    <div class="detail-item text-muted">
-                      <strong>Source / File</strong>
-                      <div class="mt-1">—</div>
-                    </div>
-                  {% endif %}
-
                   {% if image.key_words %}
                     <div class="detail-item">
                       <strong>Key Words</strong>
@@ -864,25 +851,29 @@
                 </div>
 
                 <!-- Image Preview -->
-                {% if image.source_url %}
-                  <div class="mt-3">
-                    <img src="{{ image.source_url }}"
-                         alt="{{ image.desc_image|default:'Image' }}"
-                         class="img-fluid rounded img-preview"
-                         style="max-height: 300px; width: auto; object-fit: contain; display:block;"
-                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                    <div class="img-missing-notice" style="display:none;">
-                      <i class="fas fa-exclamation-triangle text-warning me-2"></i>
-                      <span>
-                        Image file not found on the server.
-                        {% if image.source_url|slice:":4" != "http" %}
-                          The file <code>{{ image.source_url }}</code> must be present in the
-                          server's <code>media/</code> directory.
-                        {% endif %}
-                      </span>
+                <div class="mt-3">
+                  {% if image.source_url %}
+                    <a href="#" class="img-thumb-link"
+                       onclick="openLightbox('{{ image.source_url }}', '{{ image.desc_image|default:image.file_name|default:'Image'|escapejs }}'); return false;"
+                       title="Click to enlarge">
+                      <img src="{{ image.source_url }}"
+                           alt="{{ image.desc_image|default:'Image' }}"
+                           class="img-fluid rounded img-thumb"
+                           style="max-height: 220px; width: auto; object-fit: contain; display:block;"
+                           onerror="this.closest('.img-thumb-link').style.display='none'; this.closest('.mt-3').querySelector('.img-missing-notice').style.display='flex';">
+                      <div class="img-thumb-overlay"><i class="fas fa-search-plus"></i></div>
+                    </a>
+                  {% endif %}
+                  <div class="img-missing-notice" style="display:{% if image.source_url %}none{% else %}flex{% endif %};">
+                    <div class="img-missing-placeholder">
+                      <i class="fas fa-image"></i>
+                    </div>
+                    <div>
+                      <strong>Image not available</strong>
+                      <div class="small mt-1">The file could not be loaded or has not been uploaded yet.</div>
                     </div>
                   </div>
-                {% endif %}
+                </div>
               </div>
             {% endfor %}
           </div>
