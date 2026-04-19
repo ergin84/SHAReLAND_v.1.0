@@ -166,6 +166,7 @@ EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "True") == "True"
 if not DEBUG:
     # HTTPS and security
     SECURE_SSL_REDIRECT = True
+    SECURE_REDIRECT_EXEMPT = [r'^health/']
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_BROWSER_XSS_FILTER = True
