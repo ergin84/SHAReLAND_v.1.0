@@ -50,7 +50,8 @@ jobs:
 
             echo "=== [3/6] Apply database migrations ==="
             cd shareland
-            set -a && source .env && set +a
+            export DB_HOST=localhost
+            export DJANGO_SETTINGS_MODULE=ShareLand.settings
             python manage.py migrate --noinput
 
             echo "=== [4/6] Collect static files ==="
