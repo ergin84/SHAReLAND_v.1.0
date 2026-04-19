@@ -20,3 +20,8 @@ venv/
 
 # Ruff
 .ruff_cache/
+
+# Logs
+*.log
+logs/*.log
+shareland/logs/*.log
