@@ -70,6 +70,24 @@ h4.ms-h4 { font-size: .92rem; font-weight: 700; color: #374151; margin: 1.4rem 0
 .badge-user    { background: #e0f2fe; color: #075985; }
 .badge-all     { background: #f0fdf4; color: #166534; }
 
+/* ── WIP banner ──────────────────────────────────────────── */
+.wip-banner {
+  display: flex; align-items: center; gap: .75rem;
+  background: linear-gradient(135deg, #fff8e1 0%, #fffde7 100%);
+  border: 1px solid #f9a825; border-left: 4px solid #f59e0b;
+  border-radius: 8px; padding: .85rem 1.1rem; margin-bottom: 1.8rem;
+  font-size: .87rem; color: #6d4c00; line-height: 1.5;
+}
+.wip-banner .wip-icon {
+  font-size: 1.2rem; color: #f59e0b; flex-shrink: 0;
+}
+.wip-badge {
+  display: inline-flex; align-items: center; gap: .3rem;
+  background: #f59e0b; color: #fff;
+  font-size: .6rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+  padding: .18rem .5rem; border-radius: 4px; vertical-align: middle; margin-left: .3rem;
+}
+
 @media (max-width: 768px) {
   .manual-wrap    { flex-direction: column; }
   .manual-sidebar { width: 100%; position: static; max-height: none; border-right: none; border-bottom: 1px solid #e2e8f0; }
@@ -81,7 +99,7 @@ h4.ms-h4 { font-size: .92rem; font-weight: 700; color: #374151; margin: 1.4rem 0
 
   <!-- ── Sidebar ──────────────────────────────────────────── -->
   <aside class="manual-sidebar">
-    <p class="sidebar-title"><i class="fas fa-book" style="margin-right:.3rem;"></i> Manuale</p>
+    <p class="sidebar-title"><i class="fas fa-book" style="margin-right:.3rem;"></i> Manuale <span class="wip-badge"><i class="fas fa-hammer"></i> WIP</span></p>
 
     <div class="sidebar-section">
       <a class="sidebar-link active" href="#" onclick="showSection('intro',this)">
@@ -115,6 +133,13 @@ h4.ms-h4 { font-size: .92rem; font-weight: 700; color: #374151; margin: 1.4rem 0
       </a>
     </div>
 
+    <p class="sidebar-group-label">Iniziative</p>
+    <div class="sidebar-section">
+      <a class="sidebar-link" href="#" onclick="showSection('paesaggi',this)">
+        <i class="fas fa-mountain"></i> Paesaggi Condivisi
+      </a>
+    </div>
+
     <p class="sidebar-group-label">Account</p>
     <div class="sidebar-section">
       <a class="sidebar-link" href="#" onclick="showSection('profile',this)">
@@ -134,6 +159,15 @@ h4.ms-h4 { font-size: .92rem; font-weight: 700; color: #374151; margin: 1.4rem 0
 
   <!-- ── Content ──────────────────────────────────────────── -->
   <main class="manual-content">
+
+    <!-- WIP banner — always visible -->
+    <div class="wip-banner">
+      <span class="wip-icon"><i class="fas fa-hard-hat"></i></span>
+      <div>
+        <strong>Manuale in evoluzione.</strong>
+        Questo documento è in fase di redazione e verrà aggiornato con nuovi contenuti man mano che la piattaforma si sviluppa. Alcune sezioni potrebbero essere incomplete o soggette a modifiche.
+      </div>
+    </div>
 
     <!-- INTRODUZIONE -->
     <div class="manual-section active" id="sec-intro">
@@ -349,6 +383,25 @@ h4.ms-h4 { font-size: .92rem; font-weight: 700; color: #374151; margin: 1.4rem 0
 
       <h3 class="ms-h3"><i class="fas fa-layer-group"></i> Layer e tile provider</h3>
       <p class="ms-p">Le mappe usano il tile provider <strong>CARTO Positron</strong> come sfondo. Puoi navigare con zoom, pan e i controlli standard di Leaflet.</p>
+    </div>
+
+    <!-- PAESAGGI CONDIVISI -->
+    <div class="manual-section" id="sec-paesaggi">
+      <div class="ms-hero">
+        <p class="ms-eyebrow"><i class="fas fa-mountain"></i> Iniziative</p>
+        <h2 class="ms-title">Paesaggi Condivisi</h2>
+        <p class="ms-lead">Sezione dedicata alla valorizzazione pubblica dei paesaggi archeologici nell'ambito del programma di Archeologia dei Paesaggi.</p>
+      </div>
+
+      <h3 class="ms-h3"><i class="fas fa-info-circle"></i> Cos'è Paesaggi Condivisi?</h3>
+      <p class="ms-p"><em>Paesaggi Condivisi</em> è un'iniziativa che raccoglie e presenta al pubblico le ricerche condotte sul territorio nell'ambito del corso di Archeologia dei Paesaggi dell'Università degli Studi Roma Tre. La pagina dedicata raccoglie le ricerche pubblicate con mappa interattiva e materiali descrittivi.</p>
+
+      <h3 class="ms-h3"><i class="fas fa-map"></i> Accesso alla pagina</h3>
+      <p class="ms-p">La pagina <em>Paesaggi Condivisi</em> è accessibile da tutti gli utenti (anche non registrati) tramite il menu principale. Mostra le ricerche pubbliche con le relative geometrie su mappa e una locandina dell'iniziativa configurabile dall'amministratore.</p>
+
+      <div class="tip"><i class="fas fa-info-circle"></i> La locandina della pagina può essere caricata dagli amministratori in <em>Admin → Site Settings → Paesaggi Condivisi poster</em>.</div>
+
+      <div class="warn"><i class="fas fa-tools"></i> <strong>Sezione in completamento.</strong> Ulteriori dettagli su questa iniziativa verranno aggiunti a breve.</div>
     </div>
 
     <!-- PROFILO -->
