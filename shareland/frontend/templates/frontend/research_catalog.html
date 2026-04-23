@@ -274,21 +274,28 @@
 
     function setMode(mode) {
       const isMap = mode === 'map';
-      // Use explicit 'block'/'none' — setting display:'' would fall back to
-      // the stylesheet rule "#catalogMapSection { display: none }" and keep
-      // the map section hidden even in map mode.
       treeSection.style.display = isMap ? 'none' : 'block';
       mapSection.style.display = isMap ? 'block' : 'none';
       treeBtn.classList.toggle('active', !isMap);
       mapBtn.classList.toggle('active', isMap);
       if (isMap && window.catalogMap) {
-        // invalidateSize must run after the container is visible and the
-        // browser has painted its new dimensions; then re-fit bounds so the
-        // view is correct after every switch to map mode.
+        // invalidateSize must run after the container is visible.
+        // applyFilters then calls fitBounds on the correctly-sized map.
         setTimeout(() => {
           window.catalogMap.invalidateSize();
           applyFilters();
-        }, 150);
+          // If there is no data at all, fall back to geolocation or Italy
+          if (!bounds.isValid()) {
+            if (navigator.geolocation) {
+              navigator.geolocation.getCurrentPosition(
+                pos => window.catalogMap.setView([pos.coords.latitude, pos.coords.longitude], 13),
+                () => window.catalogMap.setView([43.7696, 11.2558], 6)
+              );
+            } else {
+              window.catalogMap.setView([43.7696, 11.2558], 6);
+            }
+          }
+        }, 200);
       }
     }
 
@@ -502,19 +509,10 @@
 
     [selResearch, selRegion, selMunicipality, selSite, selEvidence].forEach(sel => sel.addEventListener('change', applyFilters));
 
-    // Show map view on load. setMode triggers invalidateSize + applyFilters
-    // after 150 ms, once the container has its real dimensions.
-    // Set a fallback view now so the map isn't blank before that fires.
-    if (bounds.isValid()) {
-      map.fitBounds(bounds, { padding: [20, 20] });
-    } else {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          pos => map.setView([pos.coords.latitude, pos.coords.longitude], 13),
-          () => {}
-        );
-      }
-    }
+    // Set a neutral view on the hidden container so Leaflet doesn't render
+    // at 0,0 zoom 0. The real fitBounds runs inside setMode → setTimeout,
+    // after invalidateSize() gives the container its correct dimensions.
+    map.setView([43.7696, 11.2558], 6);
     setMode('map');
   })();
 </script>

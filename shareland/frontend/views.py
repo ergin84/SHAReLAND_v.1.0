@@ -1,4 +1,5 @@
 import csv
+import json
 import logging
 import os
 import subprocess
@@ -846,6 +847,18 @@ def preview_shapefile(request):
     try:
         geometry_text = extract_geometry_from_shapefile(request.FILES['shapefile'])
         return JsonResponse({'geometry': geometry_text})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+def preview_shapefile_geojson(request):
+    """Return all shapefile features as a GeoJSON FeatureCollection (for Evidence)."""
+    if not request.FILES.get('shapefile'):
+        return JsonResponse({'error': 'No shapefile provided'}, status=400)
+    try:
+        from .shapefile_utils import extract_geojson_from_shapefile
+        geojson = extract_geojson_from_shapefile(request.FILES['shapefile'])
+        return JsonResponse({'geojson': geojson})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
 
@@ -1820,14 +1833,28 @@ class EvidenceDetailView(DetailView):
         if evidence.id_investigation:
             context['investigation'] = evidence.id_investigation
 
-        # Create Folium map for evidence geometry
-        map_html = None
+        # Pass geometry as GeoJSON for Leaflet rendering.
+        # Supports both the new GeoJSON format and the legacy ((lon,lat),...) format.
+        geometry_geojson = None
         if evidence.geometry:
-            map_html = create_folium_map(
-                evidence.geometry,
-                research_title=evidence.evidence_name or "Evidence Location"
-            )
-        context['map_html'] = map_html
+            raw = evidence.geometry.strip()
+            if raw.startswith('{') or raw.startswith('['):
+                # Already GeoJSON
+                geometry_geojson = raw
+            else:
+                # Legacy format: convert to GeoJSON Polygon
+                from .utils.geometry import parse_geometry_string
+                coords = parse_geometry_string(raw)
+                if coords:
+                    geometry_geojson = json.dumps({
+                        "type": "FeatureCollection",
+                        "features": [{
+                            "type": "Feature",
+                            "geometry": {"type": "Polygon", "coordinates": [[[lon, lat] for lat, lon in coords]]},
+                            "properties": {}
+                        }]
+                    })
+        context['geometry_geojson'] = geometry_geojson
 
         return context
 

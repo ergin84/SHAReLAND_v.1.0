@@ -1464,7 +1464,7 @@
                     const drawControl = new L.Control.Draw({
                         draw: {
                             polygon: true,
-                            polyline: false,
+                            polyline: true,
                             rectangle: true,
                             circle: false,
                             marker: false,
@@ -1474,31 +1474,32 @@
                     });
                     map.addControl(drawControl);
 
-                    map.on(L.Draw.Event.CREATED, function (e) {
-                        const layer = e.layer;
-                        drawnItems.clearLayers();
-                        drawnItems.addLayer(layer);
-
-                        const geojson = layer.toGeoJSON();
-                        const coordinates = geojson.geometry.coordinates[0];
-                        const tupleString = coordinates.map(coord => `(${coord[0].toFixed(6)},${coord[1].toFixed(6)})`).join(',');
-                        const formatted = `(${tupleString})`;
-
+                    function serializeDrawnItems() {
+                        const fc = drawnItems.toGeoJSON();
                         const geometryInput = document.querySelector('[name="geometry"]');
-                        if (geometryInput) geometryInput.value = formatted;
+                        if (geometryInput) geometryInput.value = JSON.stringify(fc);
 
-                        // Calcolo del centroide
-                        const lats = coordinates.map(c => c[1]);
-                        const lons = coordinates.map(c => c[0]);
-                        const centroidLat = lats.reduce((a, b) => a + b) / lats.length;
-                        const centroidLon = lons.reduce((a, b) => a + b) / lons.length;
-
-                        // Inserimento del centroide nei campi lat e lon
-                        if (latField && lonField) {
-                            latField.value = centroidLat.toFixed(6);
-                            lonField.value = centroidLon.toFixed(6);
+                        // Centroid from all drawn points
+                        const allLats = [], allLons = [];
+                        drawnItems.eachLayer(l => {
+                            const b = l.getBounds ? l.getBounds() : null;
+                            if (b) {
+                                allLats.push(b.getCenter().lat);
+                                allLons.push(b.getCenter().lng);
+                            }
+                        });
+                        if (allLats.length && latField && lonField) {
+                            latField.value = (allLats.reduce((a,b)=>a+b)/allLats.length).toFixed(6);
+                            lonField.value = (allLons.reduce((a,b)=>a+b)/allLons.length).toFixed(6);
                         }
+                    }
+
+                    map.on(L.Draw.Event.CREATED, function (e) {
+                        drawnItems.addLayer(e.layer);
+                        serializeDrawnItems();
                     });
+                    map.on(L.Draw.Event.EDITED,  serializeDrawnItems);
+                    map.on(L.Draw.Event.DELETED, serializeDrawnItems);
 
                     mapInitialized = true;
                 }
@@ -1533,35 +1534,35 @@
                 const formData = new FormData();
                 formData.append('shapefile', file);
 
-                fetch('/api/preview-shapefile/', {
+                fetch('/api/preview-shapefile-geojson/', {
                     method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
                     body: formData
                 })
                     .then(res => res.json())
                     .then(data => {
                         if (data.error) return alert(data.error);
 
-                        geometryField.value = data.geometry;
+                        geometryField.value = JSON.stringify(data.geojson);
 
-                        const coords = data.geometry.match(/\((-?\d+\.\d+),(-?\d+\.\d+)\)/g)
-                            .map(c => c.replace(/[()]/g, '').split(',').map(Number));
+                        // Remove previous shapefile preview layers
+                        shpMap.eachLayer(l => { if (l._shpPreview) shpMap.removeLayer(l); });
 
-                        // Calcola il centroide
-                        const lats = coords.map(c => c[1]);
-                        const lons = coords.map(c => c[0]);
-                        const centroidLat = lats.reduce((a, b) => a + b) / lats.length;
-                        const centroidLon = lons.reduce((a, b) => a + b) / lons.length;
+                        const geoLayer = L.geoJSON(data.geojson).addTo(shpMap);
+                        geoLayer.eachLayer(l => { l._shpPreview = true; });
 
-                        // Inserisci le coordinate nel campo lat/lon
-                        latField.value = centroidLat.toFixed(6);
-                        lonField.value = centroidLon.toFixed(6);
-
-                        const polygon = L.polygon(coords.map(c => [c[1], c[0]])).addTo(shpMap);
-                        shpMap.fitBounds(polygon.getBounds());
-
-                        const modalEl = document.getElementById('uploadShapefileModal');
-                        const modal = new bootstrap.Modal(modalEl);
-                        modal.hide();
+                        // Centroid from all features
+                        const bounds = geoLayer.getBounds();
+                        if (bounds.isValid()) {
+                            const center = bounds.getCenter();
+                            latField.value = center.lat.toFixed(6);
+                            lonField.value = center.lng.toFixed(6);
+                            shpMap.invalidateSize();
+                            shpMap.fitBounds(bounds);
+                        }
+                        // Modal stays open so the user can see the preview; "Chiudi" button closes it
                     })
                     .catch(err => alert('Errore: ' + err));
             });

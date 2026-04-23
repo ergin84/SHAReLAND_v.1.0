@@ -726,6 +726,9 @@
 
             fetch('/api/preview-shapefile/', {
                 method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
                 body: formData
             })
                 .then(res => res.json())
@@ -737,12 +740,11 @@
                     const coords = data.geometry.match(/\((-?\d+\.\d+),(-?\d+\.\d+)\)/g)
                         .map(c => c.replace(/[()]/g, '').split(',').map(Number));
 
+                    shpMap.eachLayer(l => { if (l instanceof L.Polygon) shpMap.removeLayer(l); });
                     const polygon = L.polygon(coords.map(c => [c[1], c[0]])).addTo(shpMap);
+                    shpMap.invalidateSize();
                     shpMap.fitBounds(polygon.getBounds());
-
-                    const modalEl = document.getElementById('uploadShapefileModal');
-                    const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
-                    modal.hide();
+                    // Modal stays open so the user can see the preview; "Chiudi" button closes it
                 })
                 .catch(err => alert('Errore: ' + err));
         });

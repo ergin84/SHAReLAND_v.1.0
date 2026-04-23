@@ -30,6 +30,7 @@ urlpatterns = [
     path('research/<int:pk>/update/', ResearchUpdateView.as_view(), name='research-update'),
     path('research/<int:pk>/delete/', ResearchDeleteView.as_view(), name='research-delete'),
     path('api/preview-shapefile/', views.preview_shapefile, name='preview_shapefile'),
+    path('api/preview-shapefile-geojson/', views.preview_shapefile_geojson, name='preview_shapefile_geojson'),
     path('site_create/', views.SiteCreateView.as_view(), name='site_create'),
     path('evidence_create/', views.EvidenceCreateView.as_view(), name='evidence_create'),
     path('evidence/<int:pk>/update/', views.EvidenceUpdateView.as_view(), name='evidence_update'),

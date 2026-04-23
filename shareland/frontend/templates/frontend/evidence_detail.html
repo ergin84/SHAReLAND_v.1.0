@@ -156,8 +156,14 @@
                     </div>
                 </div>
                 
-                <!-- Location Map -->
-                {% if evidence.lat and evidence.lon %}
+                <!-- Geometry / Location Map -->
+                {% if geometry_geojson %}
+                <div class="mt-3">
+                    <h6><i class="fas fa-map"></i> Geometry Map</h6>
+                    <div id="evidence-geometry-map" style="height: 340px; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0;"></div>
+                    {{ geometry_geojson|json_script:"ev-geojson" }}
+                </div>
+                {% elif evidence.lat and evidence.lon %}
                 <div class="mt-3">
                     <h6><i class="fas fa-map"></i> Location Map</h6>
                     <div id="evidence-general-map" data-lat="{{ evidence.lat }}" data-lon="{{ evidence.lon }}" style="height: 300px; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0;"></div>
@@ -656,12 +662,33 @@ function initLeafletMap(divId) {
     if (isNaN(lat) || isNaN(lon)) return;
     const map = L.map(divId);
     el._leaflet_map = map;
-    const marker = L.marker([lat, lon]).addTo(map);
+    L.marker([lat, lon]).addTo(map);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
     }).addTo(map);
     map.setView([lat, lon], 13);
+    setTimeout(() => map.invalidateSize(true), 50);
+}
+
+function initGeometryMap() {
+    const el = document.getElementById('evidence-geometry-map');
+    if (!el || el._leaflet_map) return;
+    const script = document.getElementById('ev-geojson');
+    if (!script) return;
+    const geojson = JSON.parse(script.textContent);
+    const map = L.map('evidence-geometry-map');
+    el._leaflet_map = map;
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    }).addTo(map);
+    const layer = L.geoJSON(geojson, {
+        style: { color: '#2563eb', weight: 2, fillOpacity: 0.15 }
+    }).addTo(map);
+    const bounds = layer.getBounds();
+    if (bounds.isValid()) map.fitBounds(bounds, { padding: [20, 20] });
+    else map.setView([43.7696, 11.2558], 6);
     setTimeout(() => map.invalidateSize(true), 50);
 }
 
@@ -676,16 +703,16 @@ function showTab(evt, tabName) {
     tab.classList.add('active');
     evt.currentTarget.classList.add('active');
 
-    // Initialize map when General tab becomes visible
     if (tabName === 'general') {
+        initGeometryMap();
         initLeafletMap('evidence-general-map');
     }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize map when General tab is active on page load
     const generalTab = document.getElementById('general');
     if (generalTab && generalTab.classList.contains('active')) {
+        initGeometryMap();
         initLeafletMap('evidence-general-map');
     }
 });

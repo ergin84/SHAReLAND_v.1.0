@@ -30,7 +30,7 @@ def parse_geometry_string(geometry_str):
         geometry_str = geometry_str[1:-1]
 
     # Find all coordinate pairs using regex
-    pattern = r'\(([\d.]+),([\d.]+)\)'
+    pattern = r'\((-?[\d.]+),(-?[\d.]+)\)'
     matches = re.findall(pattern, geometry_str)
 
     if not matches:
@@ -64,11 +64,14 @@ def create_folium_map(geometry_str, research_title="Research Area"):
     center_lat = sum(lats) / len(lats)
     center_lon = sum(lons) / len(lons)
 
-    # Create map centered on polygon
+    # Create map centered on polygon.
+    # Using CartoDB Positron instead of the default OSM tiles — OSM's volunteer
+    # servers block requests without a Referer header (broken on localhost/staging).
     m = folium.Map(
         location=[center_lat, center_lon],
         zoom_start=12,
-        tiles='OpenStreetMap'
+        tiles='https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+        attr='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
     )
 
     # Add polygon to map
