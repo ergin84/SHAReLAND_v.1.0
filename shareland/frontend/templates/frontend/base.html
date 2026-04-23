@@ -285,10 +285,26 @@
                  style="height:40px; width:auto; max-width:120px; object-fit:contain; opacity:.9;">
           {% endif %}
 
-          <!-- Divider -->
-          {% if site_settings and site_settings.logo_partner_1 %}
+          <!-- Partner logo 2 -->
+          {% if site_settings and site_settings.logo_partner_2 %}
           <span style="width:1px; height:36px; background:rgba(255,255,255,.15); display:inline-block;"></span>
+            <img src="{{ site_settings.logo_partner_2.url }}"
+                 alt="{{ site_settings.logo_partner_2_name }}"
+                 style="height:40px; width:auto; max-width:120px; object-fit:contain; opacity:.9;">
           {% endif %}
+
+          <!-- Partner logo 3 -->
+          {% if site_settings and site_settings.logo_partner_3 %}
+          <span style="width:1px; height:36px; background:rgba(255,255,255,.15); display:inline-block;"></span>
+            <img src="{{ site_settings.logo_partner_3.url }}"
+                 alt="{{ site_settings.logo_partner_3_name }}"
+                 style="height:40px; width:auto; max-width:120px; object-fit:contain; opacity:.9;">
+          {% endif %}
+
+          <!-- Divider before SHAReLAND logo -->
+          {% if site_settings %}{% if site_settings.logo_partner_1 or site_settings.logo_partner_2 or site_settings.logo_partner_3 %}
+          <span style="width:1px; height:36px; background:rgba(255,255,255,.15); display:inline-block;"></span>
+          {% endif %}{% endif %}
 
           <!-- SHAReLAND logo + name -->
           <div style="display:flex; align-items:center; gap:.6rem;">
