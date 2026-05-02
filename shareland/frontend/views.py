@@ -3660,6 +3660,16 @@ def paesaggi_condivisi(request):
     })
 
 
+def paesaggi_virtual_tour_fullscreen(request):
+    """Fullscreen Voyager virtual tour (header only, no site footer)."""
+    return render(request, 'frontend/paesaggi_virtual_tour_fullscreen.html', {
+        'title': 'Virtual Tour — Sulle orme di un viaggiatore dell\'800',
+        'seo_title': 'Virtual Tour — Paesaggi Archeologici Condivisi',
+        'seo_description': 'Esperienza immersiva Voyager: Sulle orme di un viaggiatore dell\'800.',
+        'voyager_scene_root': settings.VOYAGER_SCENE_ROOT,
+    })
+
+
 def api_debug_data(request):
     """Debug endpoint to check data availability"""
     try:

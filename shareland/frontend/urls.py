@@ -84,6 +84,11 @@ urlpatterns = [
 
     # Paesaggi Archeologici Condivisi
     path('paesaggi-condivisi/', views.paesaggi_condivisi, name='paesaggi_condivisi'),
+    path(
+        'paesaggi-condivisi/virtual-tour/',
+        views.paesaggi_virtual_tour_fullscreen,
+        name='paesaggi_virtual_tour_fullscreen',
+    ),
 
     # Platform manual (authenticated users only)
     path('manual/', views.platform_manual, name='platform_manual'),

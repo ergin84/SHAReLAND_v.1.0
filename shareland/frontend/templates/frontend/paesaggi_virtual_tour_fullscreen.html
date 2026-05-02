@@ -1,0 +1,77 @@
+{% extends "frontend/base.html" %}
+{% load static %}
+
+{% block body_class %}vt-fullscreen-page d-flex flex-column{% endblock %}
+
+{% block content_wrapper_classes %}vt-fullscreen-main flex-grow-1 d-flex flex-column overflow-hidden m-0 p-0 w-100 my-bg min-vh-0{% endblock %}
+
+{% block site_footer %}{% endblock %}
+
+{% block content %}
+<link href="https://cdn.jsdelivr.net/gh/smithsonian/dpo-voyager@latest/assets/fonts/fonts.css" rel="stylesheet">
+<style>
+  /* Evita che il viewer Voyager (spesso 100vh) finisca sotto la navbar sticky */
+  html.vt-fullscreen-root,
+  html.vt-fullscreen-root body.vt-fullscreen-page {
+    height: 100%;
+    overflow: hidden;
+  }
+  body.vt-fullscreen-page > nav.shareland-navbar {
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1030;
+  }
+  body.vt-fullscreen-page .vt-fullscreen-main {
+    flex: 1 1 0;
+    min-height: 0;
+  }
+  .vt-fullscreen-toolbar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .5rem 1rem;
+    background: #0f172a;
+    border-bottom: 1px solid #1e293b;
+    color: #e2e8f0;
+    font-size: .9rem;
+  }
+  .vt-fullscreen-toolbar a {
+    color: #93c5fd;
+    text-decoration: none;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .vt-fullscreen-toolbar a:hover { color: #bfdbfe; }
+  .vt-fullscreen-toolbar span { color: #94a3b8; font-size: .82rem; }
+  .vt-fullscreen-viewport {
+    flex: 1 1 0;
+    min-height: 0;
+    background: #020617;
+    position: relative;
+    isolation: isolate;
+  }
+  .vt-fullscreen-viewport voyager-explorer {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+  }
+</style>
+<script>
+  document.documentElement.classList.add('vt-fullscreen-root');
+</script>
+<div class="d-flex flex-column flex-grow-1 min-vh-0" style="flex: 1 1 0; min-height: 0;">
+  <div class="vt-fullscreen-toolbar">
+    <a href="{% url 'paesaggi_condivisi' %}"><i class="fas fa-arrow-left"></i> Paesaggi Archeologici Condivisi</a>
+    <span>Lingua: Italiano · Voyager Explorer</span>
+  </div>
+  <div class="vt-fullscreen-viewport">
+    <voyager-explorer root="{{ voyager_scene_root }}" document="scene.svx.json" lang="it"></voyager-explorer>
+  </div>
+</div>
+<script src="https://3d-api.si.edu/resources/js/voyager-explorer.min.js"></script>
+{% endblock %}

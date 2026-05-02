@@ -142,6 +142,11 @@ STATIC_ROOT= os.path.join(BASE_DIR, 'static')
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_URL = '/media/'
 
+# Voyager Explorer: base URL of the published scene folder (object storage / S3-compatible).
+# Must end with /. Override with VOYAGER_SCENE_ROOT in .env for other buckets or local dev.
+_default_voyager_root = 'https://r3-it.storage.cloud.it/shareland-voyager/voyager-scene/'
+VOYAGER_SCENE_ROOT = os.getenv('VOYAGER_SCENE_ROOT', _default_voyager_root).rstrip('/') + '/'
+
 CRISPY_ALLOWED_TEMPLATE_PACKS = ["bootstrap4"]
 CRISPY_TEMPLATE_PACK = "bootstrap4"
 
